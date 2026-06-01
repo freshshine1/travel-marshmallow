@@ -11,30 +11,39 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --pink:#ffd0e2; --pink-deep:#ff9ec4; --pink-ink:#c25a8a;
-    --cream:#fff1d9; --cream-deep:#ffd89b; --cream-ink:#c2872f;
-    --mint:#cdf3df; --mint-deep:#8fe0b4; --mint-ink:#3f9c6f;
-    --lav:#e6dcff; --lav-deep:#bda6ff; --lav-ink:#7a5ed0;
-    --blue:#d4e9ff; --blue-deep:#9ecbff; --blue-ink:#4f86c6;
+    /* ----- THEME CHROME (overridden by applyTheme) — default = Marshmallow ----- */
+    --bg1:#fff6fb; --bg2:#f3f0ff;
+    --ink:#6e5d77; --ink-soft:#a596ac;
+    --accent:#ffd0e2; --accent-deep:#ff9ec4; --accent-ink:#c25a8a;
+    --accent2:#e6dcff; --accent2-deep:#bda6ff; --accent2-ink:#7a5ed0;
+    --accent-grad:linear-gradient(135deg,#ff9ec4,#ffb3d3);
+    --accent2-grad:linear-gradient(135deg,#bda6ff,#cdb9ff);
+    /* ----- FIXED ACTIVITY-TYPE COLORS (constant across all themes = legend) ----- */
+    --pink:#ffd0e2; --pink-ink:#c25a8a;
+    --cream:#fff1d9; --cream-ink:#c2872f;
+    --mint:#cdf3df; --mint-ink:#3f9c6f;
+    --lav:#e6dcff; --lav-ink:#7a5ed0;
+    --blue:#d4e9ff; --blue-ink:#4f86c6;
     --cafe:#ecd7ba; --cafe-ink:#9c6b3f;
     --hobby:#ffd4cc; --hobby-ink:#d76a5c;
     --flight:#d8d3ff; --flight-ink:#6457c4;
-    --ink:#6e5d77; --ink-soft:#a596ac;
-    --bg1:#fff6fb; --bg2:#f3f0ff;
-    --card-shadow:0 8px 24px rgba(180,150,200,.18); --radius:22px;
+    --card-shadow:0 8px 24px rgba(120,110,140,.18); --radius:22px;
   }
   *{box-sizing:border-box;} html,body{margin:0;height:100%;}
   body{font-family:'Quicksand','PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif;color:var(--ink);
-    background:radial-gradient(1200px 600px at 80% -10%,var(--bg2),transparent),radial-gradient(1000px 700px at -10% 110%,#ffeef6,transparent),var(--bg1);min-height:100%;}
+    background:radial-gradient(1200px 600px at 80% -10%,var(--bg2),transparent),radial-gradient(1000px 700px at -10% 110%,var(--accent),transparent),var(--bg1);
+    background-attachment:fixed;min-height:100%;transition:background .4s ease,color .4s ease;}
   h1,h2,h3,.display{font-family:'Fredoka','PingFang TC','Microsoft JhengHei',sans-serif;font-weight:600;}
-  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 22px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,200,225,.5);position:sticky;top:0;z-index:500;}
-  .logo{font-family:'Fredoka';font-size:1.5rem;font-weight:700;color:var(--pink-ink);letter-spacing:.5px;}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 22px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border-bottom:1px solid rgba(150,140,170,.18);position:sticky;top:0;z-index:500;}
+  .logo{font-family:'Fredoka';font-size:1.5rem;font-weight:700;color:var(--accent-ink);letter-spacing:.5px;transition:color .4s ease;}
   .trip-meta{display:flex;flex-direction:column;line-height:1.1;}
   .trip-name{font-family:'Fredoka';font-size:1.15rem;color:var(--ink);} .trip-dates{font-size:.8rem;color:var(--ink-soft);}
   .spacer{flex:1;}
+  .theme-pick{display:none;align-items:center;gap:6px;}
+  .theme-pick select{font-family:'Quicksand';font-weight:700;font-size:.84rem;color:var(--ink);border:none;cursor:pointer;border-radius:999px;padding:9px 14px;background:#fff;box-shadow:var(--card-shadow);}
   .save-stat{font-size:.78rem;font-weight:700;color:var(--ink-soft);min-width:74px;text-align:right;}
-  .view-pill{font-size:.78rem;font-weight:700;color:var(--lav-ink);background:var(--lav);padding:6px 12px;border-radius:999px;}
-  button.soft{font-family:'Quicksand';font-weight:700;font-size:.92rem;border:none;cursor:pointer;border-radius:999px;padding:11px 18px;color:#fff;background:linear-gradient(135deg,var(--pink-deep),#ffb3d3);box-shadow:0 6px 16px rgba(255,140,185,.4);transition:transform .12s ease,box-shadow .12s ease;}
+  .view-pill{font-size:.78rem;font-weight:700;color:var(--accent2-ink);background:var(--accent2);padding:6px 12px;border-radius:999px;}
+  button.soft{font-family:'Quicksand';font-weight:700;font-size:.92rem;border:none;cursor:pointer;border-radius:999px;padding:11px 18px;color:#fff;background:var(--accent-grad);box-shadow:0 6px 16px rgba(120,110,150,.32);transition:transform .12s ease,box-shadow .12s ease,background .4s ease;}
   button.soft:hover{transform:translateY(-2px);} button.soft:active{transform:translateY(0);}
   button.green{background:linear-gradient(135deg,#6fcf97,#a8e6c4);box-shadow:0 6px 16px rgba(110,200,150,.45);}
   button.blue{background:linear-gradient(135deg,#7eb6ef,#a9d3ff);box-shadow:0 6px 16px rgba(110,160,230,.4);}
@@ -47,20 +56,20 @@
   @media(max-width:900px){.stage{flex-direction:column;}.map-wrap{position:static;width:100%;}.timeline-wrap{width:100%;}}
   .section-title{display:flex;align-items:center;gap:10px;margin:0 0 12px 2px;font-size:1.05rem;}
   .day-toggle{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-  .chip{border:none;cursor:pointer;font-family:'Quicksand';font-weight:700;font-size:.82rem;padding:8px 14px;border-radius:999px;color:var(--ink);background:#fff;box-shadow:0 3px 9px rgba(180,150,200,.15);transition:all .12s ease;}
-  .chip.active{background:linear-gradient(135deg,var(--lav-deep),#cdb9ff);color:#fff;box-shadow:0 6px 14px rgba(150,110,220,.35);}
+  .chip{border:none;cursor:pointer;font-family:'Quicksand';font-weight:700;font-size:.82rem;padding:8px 14px;border-radius:999px;color:var(--ink);background:#fff;box-shadow:0 3px 9px rgba(150,140,170,.15);transition:all .12s ease;}
+  .chip.active{background:var(--accent2-grad);color:#fff;box-shadow:0 6px 14px rgba(120,110,160,.32);}
   .tl-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:6px;} .tl-inner{display:flex;position:relative;}
   .gutter{flex:0 0 52px;position:relative;} .gutter .hour-label{position:absolute;right:6px;font-size:.7rem;color:var(--ink-soft);transform:translateY(-7px);}
-  .columns{display:flex;} .col{flex:0 0 178px;position:relative;border-left:1px dashed rgba(190,165,210,.35);}
+  .columns{display:flex;} .col{flex:0 0 178px;position:relative;border-left:1px dashed rgba(150,140,170,.3);}
   .col-head{text-align:center;font-family:'Fredoka';font-weight:600;font-size:.9rem;color:var(--ink);padding:6px 4px 2px;}
   .col-head .dow{display:block;font-family:'Quicksand';font-size:.72rem;color:var(--ink-soft);font-weight:600;}
   .head-chips{display:flex;flex-direction:column;gap:3px;padding:0 4px 4px;min-height:4px;}
   .hd-chip{font-size:.66rem;font-weight:700;border-radius:8px;padding:3px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 5px rgba(150,150,180,.22);}
   .hd-hotel{background:linear-gradient(160deg,var(--mint),#e3faee);color:var(--mint-ink);}
   .hd-flight{background:linear-gradient(160deg,var(--flight),#ece9ff);color:var(--flight-ink);}
-  .grid-area{position:relative;} .hour-line{position:absolute;left:0;right:0;border-top:1px solid rgba(190,165,210,.16);}
-  .slot{position:absolute;left:6px;right:6px;border-radius:16px;padding:7px 9px;overflow:hidden;cursor:grab;box-shadow:0 5px 12px rgba(150,120,170,.22);border:1px solid rgba(255,255,255,.7);user-select:none;touch-action:none;}
-  .slot:active{cursor:grabbing;} .slot.dragging{box-shadow:0 14px 28px rgba(150,120,170,.4);z-index:50;opacity:.96;}
+  .grid-area{position:relative;} .hour-line{position:absolute;left:0;right:0;border-top:1px solid rgba(150,140,170,.14);}
+  .slot{position:absolute;left:6px;right:6px;border-radius:16px;padding:7px 9px;overflow:hidden;cursor:grab;box-shadow:0 5px 12px rgba(120,110,150,.22);border:1px solid rgba(255,255,255,.7);user-select:none;touch-action:none;}
+  .slot:active{cursor:grabbing;} .slot.dragging{box-shadow:0 14px 28px rgba(120,110,150,.4);z-index:50;opacity:.96;}
   .slot.derived{cursor:pointer;opacity:.96;}
   body.viewonly .slot{cursor:default;} body.viewonly .resize-h,body.viewonly .resize-t{display:none;}
   .slot .s-title{font-family:'Fredoka';font-weight:600;font-size:.85rem;line-height:1.05;pointer-events:none;}
@@ -82,29 +91,29 @@
   #map{height:520px;border-radius:18px;} @media(max-width:900px){#map{height:360px;}}
   .leaflet-container{font-family:'Quicksand';}
   .pin{width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.3);}
-  .pick-banner{background:var(--lav);color:var(--lav-ink);font-weight:700;padding:9px 12px;border-radius:12px;font-size:.82rem;margin-bottom:10px;display:none;cursor:pointer;}
-  .overlay{position:fixed;inset:0;background:rgba(120,95,140,.35);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px;transition:opacity .15s ease;}
+  .pick-banner{background:var(--accent2);color:var(--accent2-ink);font-weight:700;padding:9px 12px;border-radius:12px;font-size:.82rem;margin-bottom:10px;display:none;cursor:pointer;}
+  .overlay{position:fixed;inset:0;background:rgba(80,70,100,.35);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px;transition:opacity .15s ease;}
   .overlay.show{display:flex;}
-  .modal{background:#fff;border-radius:26px;box-shadow:0 24px 60px rgba(120,90,150,.4);width:100%;max-width:460px;padding:24px;max-height:92vh;overflow:auto;}
-  .modal h2{margin:0 0 14px;color:var(--pink-ink);}
+  .modal{background:#fff;border-radius:26px;box-shadow:0 24px 60px rgba(90,80,120,.4);width:100%;max-width:460px;padding:24px;max-height:92vh;overflow:auto;}
+  .modal h2{margin:0 0 14px;color:var(--accent-ink);}
   label.field{display:block;margin-bottom:12px;font-size:.82rem;font-weight:700;color:var(--ink-soft);}
-  label.field input,label.field textarea,label.field select{display:block;width:100%;margin-top:5px;font-family:'Quicksand';font-weight:600;color:var(--ink);border:2px solid #f0e6f4;border-radius:14px;padding:10px 12px;font-size:.92rem;background:#fdfaff;}
-  label.field input:focus,label.field textarea:focus,label.field select:focus{outline:none;border-color:var(--pink-deep);}
+  label.field input,label.field textarea,label.field select{display:block;width:100%;margin-top:5px;font-family:'Quicksand';font-weight:600;color:var(--ink);border:2px solid #efeaf3;border-radius:14px;padding:10px 12px;font-size:.92rem;background:#fdfbff;}
+  label.field input:focus,label.field textarea:focus,label.field select:focus{outline:none;border-color:var(--accent-deep);}
   .row2{display:flex;gap:10px;}.row2>*{flex:1;}
   .type-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;}
   .type-pick button{border:none;cursor:pointer;border-radius:999px;padding:7px 11px;font-weight:700;font-size:.76rem;font-family:'Quicksand';opacity:.5;}
-  .type-pick button.sel{opacity:1;box-shadow:0 4px 10px rgba(150,120,170,.3);transform:scale(1.04);}
+  .type-pick button.sel{opacity:1;box-shadow:0 4px 10px rgba(120,110,150,.3);transform:scale(1.04);}
   .loc-status{font-size:.78rem;font-weight:700;margin-top:6px;min-height:1em;}
   .modal-actions{display:flex;gap:10px;margin-top:6px;align-items:center;} .modal-actions .spacer{flex:1;}
   .danger{background:#fff;color:#e57396;box-shadow:0 3px 9px rgba(229,115,150,.2);}
   .hint{font-size:.76rem;color:var(--ink-soft);margin:-4px 0 14px;}
   .export-choice{display:flex;flex-direction:column;gap:12px;margin:10px 0 16px;}
-  .export-choice button{text-align:left;padding:16px;border-radius:18px;border:none;cursor:pointer;font-family:'Quicksand';font-weight:700;color:var(--ink);background:#fdf7ff;box-shadow:var(--card-shadow);font-size:.95rem;}
+  .export-choice button{text-align:left;padding:16px;border-radius:18px;border:none;cursor:pointer;font-family:'Quicksand';font-weight:700;color:var(--ink);background:#fbf8ff;box-shadow:var(--card-shadow);font-size:.95rem;}
   .export-choice button small{display:block;font-weight:600;color:var(--ink-soft);font-size:.78rem;margin-top:4px;}
   .link-box{display:flex;gap:8px;margin-top:5px;}
-  .link-box input{flex:1;font-family:monospace;font-size:.8rem;border:2px solid #f0e6f4;border-radius:12px;padding:9px 10px;background:#fdfaff;color:var(--ink);}
+  .link-box input{flex:1;font-family:monospace;font-size:.8rem;border:2px solid #efeaf3;border-radius:12px;padding:9px 10px;background:#fdfbff;color:var(--ink);}
   .share-kind{font-size:.82rem;font-weight:700;color:var(--ink-soft);margin:14px 0 0;}
-  .share-kind.edit{color:var(--pink-ink);} .share-kind.view{color:var(--blue-ink);}
+  .share-kind.edit{color:var(--accent-ink);} .share-kind.view{color:var(--blue-ink);}
   .splash{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;text-align:center;gap:10px;color:var(--ink-soft);}
   .splash .big{font-size:2.6rem;}
 </style>
@@ -117,6 +126,15 @@
     <span class="trip-name" id="tripNameLbl"></span><span class="trip-dates" id="tripDatesLbl"></span>
   </div>
   <div class="spacer"></div>
+  <div class="theme-pick" id="themePick">
+    <select id="themeSelect" title="Theme">
+      <option value="marshmallow">🍡 Marshmallow</option>
+      <option value="spring">🌸 Spring</option>
+      <option value="summer">☀️ Summer</option>
+      <option value="fall">🍂 Fall</option>
+      <option value="winter">❄️ Winter</option>
+    </select>
+  </div>
   <span class="save-stat" id="saveStat"></span>
   <span class="view-pill" id="viewPill" style="display:none;">👁 View only</span>
   <div class="add-bar" id="addBar" style="display:none;">
@@ -216,7 +234,7 @@
   <div class="modal">
     <h2>🔗 Share this trip</h2>
     <p class="hint">No login needed — whoever has a link can open it. The link <b>is</b> the permission, so share only with family & friends.</p>
-    <div id="shareLocalWarn" class="hint" style="display:none;color:var(--pink-ink);">⚠ You're opening this from a local file, so these links only work on this device. Once the app is hosted (Phase: GitHub Pages), the same links will work for everyone.</div>
+    <div id="shareLocalWarn" class="hint" style="display:none;color:var(--accent-ink);">⚠ You're opening this from a local file, so these links only work on this device. Host the app (GitHub Pages) and the same links work for everyone.</div>
     <p class="share-kind edit">✏️ Edit link — they can change the plan</p>
     <div class="link-box"><input id="editLinkInput" readonly /><button class="soft tiny" id="copyEditBtn">Copy</button></div>
     <p class="share-kind view">👁 View link — they can only look</p>
@@ -229,7 +247,7 @@
 <div class="overlay" id="exportOverlay">
   <div class="modal">
     <h2>📤 Export your trip</h2>
-    <p class="hint">Freeze the plan into a fixed format — nothing can be dragged or edited in an export.</p>
+    <p class="hint">Freeze the plan into a fixed format — nothing can be dragged or edited in an export. Uses your current theme.</p>
     <div class="export-choice">
       <button id="exHtml">🔒 Locked web page (.html)<small>Open on any device. Locations stay tappable → Google Maps. Save & re-share freely.</small></button>
       <button id="exImg">🖼️ Wallpaper image (.png)<small>A tall poster of the itinerary — set it as your phone wallpaper.</small></button>
@@ -239,10 +257,22 @@
 </div>
 
 <script>
-/* ====== Marshmallow Travel Planner — Phase 2 (Supabase-backed) ====== */
+/* ====== Marshmallow Travel Planner — Phase 2 + Themes ====== */
 const SB_URL='https://ejvtpaiuzcyufrtwafwr.supabase.co';
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdnRwYWl1emN5dWZydHdhZndyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTk5NjYsImV4cCI6MjA5NTg3NTk2Nn0.7SRc5DcYAbATXIkXfaRl5slHeAM8bXSSyJ9zI0g-ulY';
 const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_ANON) : null;
+
+/* ====== THEMES (chrome only; type colors stay fixed) ====== */
+const THEMES={
+  marshmallow:{'--bg1':'#fff6fb','--bg2':'#f3f0ff','--ink':'#6e5d77','--ink-soft':'#a596ac','--accent':'#ffd0e2','--accent-deep':'#ff9ec4','--accent-ink':'#c25a8a','--accent2':'#e6dcff','--accent2-deep':'#bda6ff','--accent2-ink':'#7a5ed0','--accent-grad':'linear-gradient(135deg,#ff9ec4,#ffb3d3)','--accent2-grad':'linear-gradient(135deg,#bda6ff,#cdb9ff)'},
+  spring:{'--bg1':'#f4fbef','--bg2':'#fdfbe6','--ink':'#566b4c','--ink-soft':'#9aa888','--accent':'#d6ecbb','--accent-deep':'#9bd368','--accent-ink':'#5b9b3e','--accent2':'#ffe2ee','--accent2-deep':'#ffb3d1','--accent2-ink':'#d96b97','--accent-grad':'linear-gradient(135deg,#9bd368,#c3e8a0)','--accent2-grad':'linear-gradient(135deg,#ffb3d1,#ffd0e2)'},
+  summer:{'--bg1':'#eafaff','--bg2':'#fff6df','--ink':'#3f6f7a','--ink-soft':'#8bb3bd','--accent':'#aeedf3','--accent-deep':'#33cde0','--accent-ink':'#1f97a8','--accent2':'#ffe0d2','--accent2-deep':'#ff9d76','--accent2-ink':'#e0683c','--accent-grad':'linear-gradient(135deg,#33cde0,#7fe3ee)','--accent2-grad':'linear-gradient(135deg,#ff9d76,#ffc0a0)'},
+  fall:{'--bg1':'#fdf3e7','--bg2':'#f8e6d4','--ink':'#6b4f3a','--ink-soft':'#a98e74','--accent':'#f5cd95','--accent-deep':'#e8993f','--accent-ink':'#b56a1f','--accent2':'#f0c4a8','--accent2-deep':'#cf7a4f','--accent2-ink':'#9c4a26','--accent-grad':'linear-gradient(135deg,#e8993f,#f2bd7a)','--accent2-grad':'linear-gradient(135deg,#cf7a4f,#e0a07f)'},
+  winter:{'--bg1':'#eef4fb','--bg2':'#eaeef4','--ink':'#46566b','--ink-soft':'#8fa0b3','--accent':'#c3daf2','--accent-deep':'#7aa9dd','--accent-ink':'#4a78b0','--accent2':'#d4dbe4','--accent2-deep':'#9aabbd','--accent2-ink':'#647689','--accent-grad':'linear-gradient(135deg,#7aa9dd,#a8c8ec)','--accent2-grad':'linear-gradient(135deg,#9aabbd,#c0ccd8)'},
+};
+let currentTheme=localStorage.getItem('mm_theme')||'marshmallow';
+function applyTheme(name){const t=THEMES[name]||THEMES.marshmallow;Object.entries(t).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));currentTheme=name;const sel=document.getElementById('themeSelect');if(sel)sel.value=name;}
+applyTheme(currentTheme); // apply immediately so splash matches
 
 const PX_PER_HOUR=56,SNAP=15,MIN_DUR=30;
 const TYPES=[
@@ -262,7 +292,6 @@ let trip=null,slots=[],stays=[],flights=[],nextId=1,nextStay=1,nextFlight=1;
 let map,markerLayer,activeDayFilter='all';
 let editingSlotId=null,formType='meal',editingHotelId=null,editingFlightId=null;
 let pendingLatLng=null,pickMode=false,pickTarget=null,tempMarker=null;
-/* persistence/sharing */
 let tripId=null,editToken=null,viewToken=null,canEdit=true,suppressHash=false;
 
 const $=id=>document.getElementById(id);
@@ -278,12 +307,15 @@ function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function resStr(x){let p=[];if(x.resname)p.push('🎫 '+x.resname);if(x.resnum)p.push('#'+x.resnum);return p.join('  ');}
 function gmaps(lat,lng,name){if(lat!=null)return'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;if(name)return'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name);return null;}
 
+/* ---------- THEME PICKER ---------- */
+$('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}if(map)setTimeout(()=>map.invalidateSize(),50);};
+
 /* ====== PERSISTENCE ====== */
-function serialize(){return{v:2,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,slots,stays,flights,nextId,nextStay,nextFlight};}
+function serialize(){return{v:3,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,nextId,nextStay,nextFlight};}
 function deserialize(d){
   const start=new Date(d.start),end=new Date(d.end);
   const days=[];let x=new Date(start);while(x<=end){days.push(new Date(x));x=dateAddDays(x,1);if(days.length>60)break;}
-  trip={name:d.name,start,end,days,hourStart:d.hourStart??6,hourEnd:d.hourEnd??24};
+  trip={name:d.name,start,end,days,hourStart:d.hourStart??6,hourEnd:d.hourEnd??24,theme:d.theme||'marshmallow'};
   slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];
   nextId=d.nextId||1;nextStay=d.nextStay||1;nextFlight=d.nextFlight||1;
 }
@@ -307,17 +339,8 @@ function commit(){renderAll();persistSoon();}
 function shareBase(){return location.origin+location.pathname;}
 function editLink(){return shareBase()+'#/trip/'+tripId+'?t='+editToken;}
 function viewLink(){return shareBase()+'#/trip/'+tripId+'?t='+viewToken;}
-function updateShareUI(){
-  if(!tripId)return;
-  $('shareBtn').style.display=canEdit?'inline-block':'none';
-  if(editToken)$('editLinkInput').value=editLink();
-  if(viewToken)$('viewLinkInput').value=viewLink();
-}
-$('shareBtn').onclick=()=>{
-  updateShareUI();
-  $('shareLocalWarn').style.display=(location.protocol==='file:')?'block':'none';
-  $('shareOverlay').classList.add('show');
-};
+function updateShareUI(){if(!tripId)return;$('shareBtn').style.display=canEdit?'inline-block':'none';if(editToken)$('editLinkInput').value=editLink();if(viewToken)$('viewLinkInput').value=viewLink();}
+$('shareBtn').onclick=()=>{updateShareUI();$('shareLocalWarn').style.display=(location.protocol==='file:')?'block':'none';$('shareOverlay').classList.add('show');};
 $('shareCloseBtn').onclick=()=>$('shareOverlay').classList.remove('show');
 function copyField(inp){inp.select();inp.setSelectionRange(0,99999);try{navigator.clipboard.writeText(inp.value);}catch(_){document.execCommand('copy');}}
 $('copyEditBtn').onclick=function(){copyField($('editLinkInput'));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1200);};
@@ -339,7 +362,8 @@ $('tripSaveBtn').onclick=()=>{
   let hStart=Math.max(0,Math.min(22,parseInt($('f_hstart').value)||6));
   let hEnd=Math.max(hStart+2,Math.min(24,parseInt($('f_hend').value)||24));
   const days=[];let d=new Date(start);while(d<=end){days.push(new Date(d));d=dateAddDays(d,1);if(days.length>60)break;}
-  trip={name,start,end,days,hourStart:hStart,hourEnd:hEnd};
+  const keepTheme=trip?trip.theme:currentTheme;
+  trip={name,start,end,days,hourStart:hStart,hourEnd:hEnd,theme:keepTheme||currentTheme};
   slots=slots.filter(sl=>sl.dayIndex<days.length);
   stays=stays.filter(st=>st.ciDay<days.length);stays.forEach(st=>{if(st.coDay>=days.length)st.coDay=days.length-1;});
   flights=flights.filter(f=>f.depDay<days.length);flights.forEach(f=>{if(f.arrDay>=days.length)f.arrDay=days.length-1;});
@@ -350,6 +374,8 @@ $('tripSaveBtn').onclick=()=>{
 function bootUI(){
   $('splash').style.display='none';
   $('tripMeta').style.display='flex';$('stage').style.display='flex';
+  $('themePick').style.display='flex';
+  applyTheme(trip.theme||currentTheme);localStorage.setItem('mm_theme',trip.theme||currentTheme);
   document.body.classList.toggle('viewonly',!canEdit);
   $('addBar').style.display='flex';
   ['editTripBtn','addFlightBtn','addHotelBtn','addSlotBtn'].forEach(id=>$(id).style.display=canEdit?'inline-block':'none');
@@ -463,12 +489,12 @@ function refreshMarkers(){
 function startPick(target){pickMode=true;pickTarget=target;$('pickBanner').style.display='block';$('map').style.cursor='crosshair';const ov=target==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='0';$(ov).style.pointerEvents='none';$('map').scrollIntoView({behavior:'smooth',block:'center'});}
 function endPick(ok){pickMode=false;$('pickBanner').style.display='none';$('map').style.cursor='';const ov=pickTarget==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='1';$(ov).style.pointerEvents='auto';const st=pickTarget==='hotel'?'hLocStatus':'locStatus';if(ok){$(st).textContent='✓ Location set';$(st).style.color='var(--mint-ink)';}pickTarget=null;}
 async function geocode(q,statusId){
-  if(!q){$(statusId).textContent='Type a location name first';$(statusId).style.color='var(--pink-ink)';return;}
-  $(statusId).textContent='Searching…';$(statusId).style.color='var(--lav-ink)';
+  if(!q){$(statusId).textContent='Type a location name first';$(statusId).style.color='var(--accent-ink)';return;}
+  $(statusId).textContent='Searching…';$(statusId).style.color='var(--accent2-ink)';
   try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}});const j=await r.json();
     if(j&&j.length){pendingLatLng={lat:+j[0].lat,lng:+j[0].lon};if(tempMarker)tempMarker.remove();tempMarker=L.marker([+j[0].lat,+j[0].lon]).addTo(map);map.setView([+j[0].lat,+j[0].lon],14);$(statusId).textContent='✓ Found: '+(j[0].display_name||'').slice(0,46)+'…';$(statusId).style.color='var(--mint-ink)';return;}
-    $(statusId).textContent='No match — add more detail, or pick manually';$(statusId).style.color='var(--pink-ink)';
-  }catch(e){$(statusId).textContent='Search unavailable — pick manually instead';$(statusId).style.color='var(--pink-ink)';}
+    $(statusId).textContent='No match — add more detail, or pick manually';$(statusId).style.color='var(--accent-ink)';
+  }catch(e){$(statusId).textContent='Search unavailable — pick manually instead';$(statusId).style.color='var(--accent-ink)';}
 }
 function fillDaySelect(el,sel){el.innerHTML='';trip.days.forEach((d,i)=>{const o=document.createElement('option');o.value=i;o.textContent='Day '+(i+1)+' · '+fmtDate(d);el.appendChild(o);});el.value=sel||0;}
 
@@ -526,23 +552,24 @@ $('hPickBtn').onclick=()=>startPick('hotel');
 $('hotelSaveBtn').onclick=()=>{let ciDay=parseInt($('h_ciDay').value),coDay=parseInt($('h_coDay').value);if(coDay<ciDay)[ciDay,coDay]=[coDay,ciDay];const data={name:$('h_name').value.trim()||'Hotel',ciDay,coDay,ciMin:inputValToMins($('h_ciTime').value||'15:00'),coMin:inputValToMins($('h_coTime').value||'11:00'),loc:$('h_loc').value.trim(),resname:$('h_resname').value.trim(),resnum:$('h_resnum').value.trim(),notes:$('h_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};if(editingHotelId)Object.assign(stays.find(s=>s.id===editingHotelId),data);else stays.push({id:nextStay++,...data});closeHotelModal();commit();};
 $('hotelDeleteBtn').onclick=()=>{if(editingHotelId)stays=stays.filter(s=>s.id!==editingHotelId);closeHotelModal();commit();};
 
-/* ---------- EXPORT ---------- */
-const AGENDA_CSS=`
-.ag-wrap{max-width:520px;margin:0 auto;padding:22px 16px 30px;font-family:'Quicksand','PingFang TC','Microsoft JhengHei',sans-serif;color:#6e5d77;}
-.ag-head{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.7rem;color:#c25a8a;text-align:center;margin-bottom:4px;}
-.ag-sub{font-size:.85rem;color:#a596ac;font-weight:600;text-align:center;margin-bottom:18px;}
-.ag-day{background:rgba(255,255,255,.85);border-radius:22px;box-shadow:0 8px 24px rgba(180,150,200,.18);padding:14px 16px;margin-bottom:16px;}
-.ag-day-h{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.05rem;color:#7a5ed0;margin-bottom:10px;}
-.ag-day-h span{font-family:'Quicksand';font-weight:600;font-size:.8rem;color:#a596ac;margin-left:6px;}
-.ag-row{display:flex;gap:10px;padding:8px 0;border-top:1px solid rgba(190,165,210,.18);}
+/* ---------- EXPORT (themed) ---------- */
+function agendaCSS(){const t=THEMES[currentTheme]||THEMES.marshmallow;return `
+.ag-wrap{max-width:520px;margin:0 auto;padding:22px 16px 30px;font-family:'Quicksand','PingFang TC','Microsoft JhengHei',sans-serif;color:${t['--ink']};}
+.ag-head{font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.7rem;color:${t['--accent-ink']};text-align:center;margin-bottom:4px;}
+.ag-sub{font-size:.85rem;color:${t['--ink-soft']};font-weight:600;text-align:center;margin-bottom:18px;}
+.ag-day{background:rgba(255,255,255,.85);border-radius:22px;box-shadow:0 8px 24px rgba(120,110,140,.18);padding:14px 16px;margin-bottom:16px;}
+.ag-day-h{font-family:'Fredoka',sans-serif;font-weight:600;font-size:1.05rem;color:${t['--accent2-ink']};margin-bottom:10px;}
+.ag-day-h span{font-family:'Quicksand';font-weight:600;font-size:.8rem;color:${t['--ink-soft']};margin-left:6px;}
+.ag-row{display:flex;gap:10px;padding:8px 0;border-top:1px solid rgba(150,140,170,.18);}
 .ag-row:first-of-type{border-top:none;}
-.ag-time{flex:0 0 64px;font-weight:700;font-size:.78rem;color:#b07fa0;padding-top:2px;}
+.ag-time{flex:0 0 64px;font-weight:700;font-size:.78rem;color:${t['--accent-ink']};padding-top:2px;}
 .ag-body{flex:1;min-width:0;}
 .ag-title{font-family:'Fredoka',sans-serif;font-weight:600;font-size:.95rem;}
 .ag-loc{font-size:.8rem;margin-top:2px;} .ag-loc a{color:#4f86c6;font-weight:700;text-decoration:none;}
-.ag-res{font-size:.74rem;color:#a596ac;font-weight:600;margin-top:2px;}
-.ag-empty{color:#c3b6c9;font-style:italic;font-size:.85rem;padding:4px 0;}
-.ag-foot{text-align:center;color:#c3b6c9;font-size:.78rem;font-weight:600;margin-top:6px;}`;
+.ag-res{font-size:.74rem;color:${t['--ink-soft']};font-weight:600;margin-top:2px;}
+.ag-empty{color:${t['--ink-soft']};font-style:italic;font-size:.85rem;padding:4px 0;opacity:.7;}
+.ag-foot{text-align:center;color:${t['--ink-soft']};font-size:.78rem;font-weight:600;margin-top:6px;opacity:.8;}`;}
+function agendaBG(){const t=THEMES[currentTheme]||THEMES.marshmallow;return `radial-gradient(1000px 600px at 80% -10%,${t['--bg2']},transparent),radial-gradient(900px 500px at -10% 110%,${t['--accent']},transparent),${t['--bg1']}`;}
 function agendaHTML(){
   let h='<div class="ag-wrap"><div class="ag-head">🍡 '+esc(trip.name)+'</div><div class="ag-sub">'+fmtDate(trip.start)+' – '+fmtDate(trip.end)+' · '+trip.days.length+' days</div>';
   trip.days.forEach((d,i)=>{
@@ -563,15 +590,15 @@ function slug(){return(trip.name||'trip').toLowerCase().replace(/[^a-z0-9]+/g,'-
 function downloadBlob(content,type,name){const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);}
 $('exportBtn').onclick=()=>$('exportOverlay').classList.add('show');
 $('exportCancelBtn').onclick=()=>$('exportOverlay').classList.remove('show');
-$('exHtml').onclick=()=>{const doc='<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(trip.name)+' · itinerary</title><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:radial-gradient(1000px 600px at 80% -10%,#f3f0ff,transparent),#fff6fb;min-height:100vh;}'+AGENDA_CSS+'</style></head><body>'+agendaHTML()+'</body></html>';downloadBlob(doc,'text/html',slug()+'-itinerary.html');$('exportOverlay').classList.remove('show');};
-$('exImg').onclick=async()=>{const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:520px;background:radial-gradient(1000px 600px at 80% -10%,#f3f0ff,transparent),#fff6fb;';const st=document.createElement('style');st.textContent=AGENDA_CSS;host.appendChild(st);const c=document.createElement('div');c.innerHTML=agendaHTML();host.appendChild(c);document.body.appendChild(host);try{const canvas=await html2canvas(host,{scale:2,backgroundColor:'#fff6fb',useCORS:true});const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=slug()+'-wallpaper.png';document.body.appendChild(a);a.click();a.remove();}catch(e){alert('Could not render image. Try the locked web page instead.');}host.remove();$('exportOverlay').classList.remove('show');};
+$('exHtml').onclick=()=>{const doc='<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(trip.name)+' · itinerary</title><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet"><style>body{margin:0;background:'+agendaBG()+';min-height:100vh;}'+agendaCSS()+'</style></head><body>'+agendaHTML()+'</body></html>';downloadBlob(doc,'text/html',slug()+'-itinerary.html');$('exportOverlay').classList.remove('show');};
+$('exImg').onclick=async()=>{const t=THEMES[currentTheme]||THEMES.marshmallow;const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:520px;background:'+agendaBG()+';';const st=document.createElement('style');st.textContent=agendaCSS();host.appendChild(st);const c=document.createElement('div');c.innerHTML=agendaHTML();host.appendChild(c);document.body.appendChild(host);try{const canvas=await html2canvas(host,{scale:2,backgroundColor:t['--bg1'],useCORS:true});const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=slug()+'-wallpaper.png';document.body.appendChild(a);a.click();a.remove();}catch(e){alert('Could not render image. Try the locked web page instead.');}host.remove();$('exportOverlay').classList.remove('show');};
 
 /* ---------- backdrop-to-close ---------- */
 [['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
 
 /* ---------- ROUTING + START ---------- */
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const m=h.match(/^trip\/([^?]+)\?t=(.+)$/);return m?{id:m[1],token:m[2]}:null;}
-function showSplash(msg){$('splash').style.display='flex';$('splashMsg').textContent=msg;$('stage').style.display='none';$('tripMeta').style.display='none';$('addBar').style.display='none';}
+function showSplash(msg){$('splash').style.display='flex';$('splashMsg').textContent=msg;$('stage').style.display='none';$('tripMeta').style.display='none';$('addBar').style.display='none';$('themePick').style.display='flex';}
 async function loadFromHash(){
   const ctx=parseHash();
   if(!ctx){openTripModal(false);return;}
