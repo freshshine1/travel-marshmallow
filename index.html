@@ -33,12 +33,15 @@
     background-attachment:fixed;min-height:100%;transition:background .4s ease,color .4s ease;}
   h1,h2,h3,.display{font-family:'Fredoka','PingFang TC','Microsoft JhengHei',sans-serif;font-weight:600;}
   header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 22px;background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border-bottom:1px solid rgba(150,140,170,.18);position:sticky;top:0;z-index:500;}
-  .logo{font-family:'Fredoka';font-size:1.5rem;font-weight:700;color:var(--accent-ink);letter-spacing:.5px;transition:color .4s ease;}
+  .logo-wrap{position:relative;display:flex;align-items:center;}
+  .logo{font-family:'Fredoka';font-size:1.5rem;font-weight:700;color:var(--accent-ink);letter-spacing:.5px;transition:color .4s ease;position:relative;z-index:1;}
+  .logo-decor{position:absolute;inset:-8px -14px;pointer-events:none;z-index:0;font-size:1rem;}
+  .logo-decor span{position:absolute;opacity:.85;}
   .trip-meta{display:flex;flex-direction:column;line-height:1.1;}
   .trip-name{font-family:'Fredoka';font-size:1.15rem;color:var(--ink);} .trip-dates{font-size:.8rem;color:var(--ink-soft);}
   .spacer{flex:1;}
   .theme-pick{display:none;align-items:center;gap:6px;}
-  .theme-pick select{font-family:'Quicksand';font-weight:700;font-size:.84rem;color:var(--ink);border:none;cursor:pointer;border-radius:999px;padding:9px 14px;background:#fff;box-shadow:var(--card-shadow);}
+  .theme-pick select{font-family:'Quicksand';font-weight:700;font-size:.8rem;color:var(--ink);border:none;cursor:pointer;border-radius:999px;padding:7px 10px;background:#fff;box-shadow:var(--card-shadow);}
   .save-stat{font-size:.78rem;font-weight:700;color:var(--ink-soft);min-width:74px;text-align:right;}
   .view-pill{font-size:.78rem;font-weight:700;color:var(--accent2-ink);background:var(--accent2);padding:6px 12px;border-radius:999px;}
   button.soft{font-family:'Quicksand';font-weight:700;font-size:.92rem;border:none;cursor:pointer;border-radius:999px;padding:11px 18px;color:#fff;background:var(--accent-grad);box-shadow:0 6px 16px rgba(120,110,150,.32);transition:transform .12s ease,box-shadow .12s ease,background .4s ease;}
@@ -48,13 +51,31 @@
   button.amber{background:linear-gradient(135deg,#efb45f,#ffd89b);box-shadow:0 6px 16px rgba(220,170,80,.4);}
   button.ghost{background:#fff;color:var(--ink);box-shadow:var(--card-shadow);}
   button.tiny{padding:8px 13px;font-size:.82rem;}
-  .add-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .add-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end;}
+  button.mini{padding:7px 10px;font-size:.8rem;}
+  .add-primary{font-size:.95rem;padding:11px 20px;}
+  /* floating add button — mobile-friendly */
+  .fab-add{position:fixed;right:18px;bottom:20px;width:58px;height:58px;border-radius:50%;border:none;cursor:pointer;font-size:1.9rem;line-height:1;color:#fff;background:linear-gradient(135deg,#6fcf97,#a8e6c4);box-shadow:0 10px 26px rgba(110,200,150,.5);z-index:650;display:none;align-items:center;justify-content:center;}
+  .fab-add:active{transform:scale(.94);}
+  @media(min-width:901px){.fab-add{display:none!important;}}
+  @media(max-width:900px){.add-primary{display:none!important;} .add-bar .lbl{display:none;} }
+  /* resizable + collapsible map */
+  .stage-divider{flex:0 0 12px;align-self:stretch;cursor:col-resize;display:flex;align-items:center;justify-content:center;}
+  .stage-divider .grip{width:4px;height:54px;border-radius:4px;background:rgba(150,140,170,.4);transition:background .15s;}
+  .stage-divider:hover .grip{background:var(--accent2-deep);}
+  .map-collapse{margin-left:auto;border:none;background:#f4f0fa;cursor:pointer;border-radius:50%;width:26px;height:26px;font-size:.8rem;color:var(--ink);line-height:1;}
+  .map-reopen{display:none;align-self:flex-start;margin-top:38px;border:none;background:var(--accent2-grad);color:#fff;cursor:pointer;border-radius:14px 0 0 14px;padding:12px 8px;font-size:1.1rem;box-shadow:-3px 0 12px rgba(120,110,150,.25);}
+  body.map-collapsed .map-wrap{display:none;}
+  body.map-collapsed .stage-divider{display:none;}
+  body.map-collapsed .map-reopen{display:block;}
+  body.map-collapsed .timeline-wrap{flex:1 1 auto;}
+  @media(max-width:900px){.stage-divider{display:none;} .map-reopen{display:none!important;} }
   .pending-btn{position:relative;}
   .pending-badge{position:absolute;top:-6px;right:-6px;background:#ff7aa8;color:#fff;font-size:.66rem;font-weight:800;min-width:18px;height:18px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 6px rgba(255,120,168,.5);}
   .stage{display:flex;gap:18px;padding:18px;align-items:flex-start;}
   .panel{background:rgba(255,255,255,.78);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:16px;}
-  .timeline-wrap{flex:1.5;min-width:0;} .map-wrap{flex:1;position:sticky;top:84px;}
-  @media(max-width:900px){.stage{flex-direction:column;}.map-wrap{position:static;width:100%;}.timeline-wrap{width:100%;}}
+  .timeline-wrap{flex:1 1 60%;min-width:0;} .map-wrap{flex:1 1 40%;min-width:240px;position:sticky;top:84px;}
+  @media(max-width:900px){.stage{flex-direction:column;}.map-wrap{position:static;width:100%;flex-basis:auto;}.timeline-wrap{width:100%;flex-basis:auto;}}
   .section-title{display:flex;align-items:center;gap:10px;margin:0 0 12px 2px;font-size:1.05rem;}
   .day-toggle{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .chip{border:none;cursor:pointer;font-family:'Quicksand';font-weight:700;font-size:.82rem;padding:8px 14px;border-radius:999px;color:var(--ink);background:#fff;box-shadow:0 3px 9px rgba(150,140,170,.15);transition:all .12s ease;}
@@ -164,50 +185,55 @@
 <body>
 
 <header>
-  <span class="logo">🍡 Marshmallow</span>
+  <div class="logo-wrap"><span class="logo-decor" id="logoDecor"></span><span class="logo" id="logo">🍡 Marshmallow</span></div>
+  <button class="soft green add-primary" id="addSlotBtn" style="display:none;">＋ Add to trip</button>
   <div class="trip-meta" id="tripMeta" style="display:none;">
     <span class="trip-name" id="tripNameLbl"></span><span class="trip-dates" id="tripDatesLbl"></span>
   </div>
   <div class="spacer"></div>
-  <div class="theme-pick" id="themePick">
-    <select id="themeSelect" title="Theme">
-      <option value="marshmallow">🍡 Marshmallow</option>
-      <option value="spring">🌸 Spring</option>
-      <option value="summer">☀️ Summer</option>
-      <option value="fall">🍂 Fall</option>
-      <option value="winter">❄️ Winter</option>
-    </select>
-  </div>
   <span class="save-stat" id="saveStat"></span>
   <span class="view-pill" id="viewPill" style="display:none;">👁 View only</span>
   <div class="add-bar" id="addBar" style="display:none;">
     <button class="me-chip" id="meChip" style="display:none;"><span class="me-dot" id="meDot">🙂</span><span id="meName">Set name</span></button>
-    <button class="soft ghost tiny pending-btn" id="pendingBtn" style="display:none;">📥 Pending<span class="pending-badge" id="pendingBadge">0</span></button>
-    <button class="soft ghost tiny" id="editTripBtn">✏️ Trip</button>
-    <button class="soft ghost tiny" id="addFlightBtn">✈️ Flight</button>
-    <button class="soft ghost tiny" id="addHotelBtn">🏨 Hotel</button>
-    <button class="soft ghost tiny" id="exportBtn">📤 Export</button>
-    <button class="soft blue tiny" id="shareBtn">🔗 Share</button>
-    <button class="soft green" id="addSlotBtn">＋ Add to trip</button>
+    <button class="soft ghost mini pending-btn" id="pendingBtn" style="display:none;">📥<span class="lbl"> Pending</span><span class="pending-badge" id="pendingBadge">0</span></button>
+    <button class="soft ghost mini" id="editTripBtn">✏️<span class="lbl"> Trip</span></button>
+    <button class="soft ghost mini" id="addFlightBtn">✈️<span class="lbl"> Flight</span></button>
+    <button class="soft ghost mini" id="addHotelBtn">🏨<span class="lbl"> Hotel</span></button>
+    <button class="soft ghost mini" id="exportBtn">📤<span class="lbl"> Export</span></button>
+    <button class="soft blue mini" id="shareBtn">🔗<span class="lbl"> Share</span></button>
+    <div class="theme-pick" id="themePick">
+      <select id="themeSelect" title="Theme">
+        <option value="marshmallow">🍡 Marshmallow</option>
+        <option value="spring">🌸 Spring</option>
+        <option value="summer">☀️ Summer</option>
+        <option value="fall">🍂 Fall</option>
+        <option value="winter">❄️ Winter</option>
+      </select>
+    </div>
   </div>
 </header>
 
 <div class="splash" id="splash" style="display:none;"><div class="big">🍡</div><div id="splashMsg">Loading your trip…</div></div>
 
 <div class="stage" id="stage" style="display:none;">
-  <div class="panel timeline-wrap">
+  <div class="panel timeline-wrap" id="timelineWrap">
     <h3 class="section-title">📅 Your days</h3>
     <div class="tl-scroll"><div class="tl-inner">
       <div class="gutter" id="gutter"></div><div class="columns" id="columns"></div>
     </div></div>
   </div>
-  <div class="panel map-wrap">
-    <h3 class="section-title">🗺️ The map</h3>
+  <div class="stage-divider" id="stageDivider" title="Drag to resize"><span class="grip"></span></div>
+  <button class="map-reopen" id="mapReopen" title="Show map">🗺️</button>
+  <div class="panel map-wrap" id="mapWrap">
+    <h3 class="section-title">🗺️ The map<button class="map-collapse" id="mapCollapse" title="Hide map">▸</button></h3>
     <div class="day-toggle" id="dayToggle"></div>
     <div class="pick-banner" id="pickBanner">📍 Click anywhere on the map to drop the pin… (tap here to cancel)</div>
     <div id="map"></div>
   </div>
 </div>
+
+<!-- Floating add button (mobile-friendly) -->
+<button class="fab-add" id="fabAdd" style="display:none;" title="Add to trip">＋</button>
 
 <!-- Trip -->
 <div class="overlay" id="tripOverlay">
@@ -393,7 +419,20 @@ const THEMES={
   winter:{'--bg1':'#eef4fb','--bg2':'#eaeef4','--ink':'#46566b','--ink-soft':'#8fa0b3','--accent':'#c3daf2','--accent-deep':'#7aa9dd','--accent-ink':'#4a78b0','--accent2':'#d4dbe4','--accent2-deep':'#9aabbd','--accent2-ink':'#647689','--accent-grad':'linear-gradient(135deg,#7aa9dd,#a8c8ec)','--accent2-grad':'linear-gradient(135deg,#9aabbd,#c0ccd8)'},
 };
 let currentTheme=localStorage.getItem('mm_theme')||'marshmallow';
-function applyTheme(name){const t=THEMES[name]||THEMES.marshmallow;Object.entries(t).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));currentTheme=name;const sel=document.getElementById('themeSelect');if(sel)sel.value=name;}
+const LOGO_DECOR={
+  marshmallow:{logo:'🍡 Marshmallow',bits:[]},
+  spring:{logo:'🌸 Marshmallow',bits:[['🌸',-10,-6,0],['🌷',92,-2,8],['🌸',104,18,-12],['🐝',-16,16,6]]},
+  summer:{logo:'☀️ Marshmallow',bits:[['☀️',-14,-8,0],['🌴',100,-4,6],['🌊',96,20,-8],['🐚',-12,18,4]]},
+  fall:{logo:'🍂 Marshmallow',bits:[['🍁',-12,-8,-10],['🍂',96,-4,12],['🍁',106,16,8],['🌰',-14,16,-4]]},
+  winter:{logo:'❄️ Marshmallow',bits:[['❄️',-12,-8,0],['❄️',98,-6,0],['☃️',104,16,0],['❄️',-14,16,0]]},
+};
+function renderLogoDecor(name){
+  const d=LOGO_DECOR[name]||LOGO_DECOR.marshmallow;
+  const logoEl=document.getElementById('logo');if(logoEl)logoEl.textContent=d.logo;
+  const dec=document.getElementById('logoDecor');if(!dec)return;dec.innerHTML='';
+  d.bits.forEach(([emoji,left,top,rot])=>{const s=document.createElement('span');s.textContent=emoji;s.style.left=left+'%';s.style.top=top+'px';s.style.transform='rotate('+rot+'deg)';dec.appendChild(s);});
+}
+function applyTheme(name){const t=THEMES[name]||THEMES.marshmallow;Object.entries(t).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));currentTheme=name;const sel=document.getElementById('themeSelect');if(sel)sel.value=name;renderLogoDecor(name);}
 applyTheme(currentTheme);
 
 const PX_PER_HOUR=56,SNAP=15,MIN_DUR=30;
@@ -745,6 +784,8 @@ function bootUI(){
   document.body.classList.toggle('viewonly',!canEdit);
   $('addBar').style.display='flex';
   ['editTripBtn','addFlightBtn','addHotelBtn','addSlotBtn'].forEach(id=>$(id).style.display=canEdit?'inline-block':'none');
+  $('fabAdd').style.display=canEdit?'flex':'none';
+  restoreLayoutPrefs();
   $('shareBtn').style.display=canEdit?'inline-block':'none';
   $('viewPill').style.display=canEdit?'none':'inline-block';
   $('tripNameLbl').textContent=trip.name;
@@ -890,6 +931,31 @@ function openSlotModal(id){
   buildTypePick();$('slotOverlay').classList.add('show');
 }
 $('addSlotBtn').onclick=()=>openSlotModal(null);
+$('fabAdd').onclick=()=>openSlotModal(null);
+
+/* ---- map: collapse / reopen / drag-resize ---- */
+function collapseMap(yes){document.body.classList.toggle('map-collapsed',yes);try{localStorage.setItem('mm_map_collapsed',yes?'1':'0');}catch(_){}if(!yes&&map)setTimeout(()=>map.invalidateSize(),60);}
+$('mapCollapse').onclick=()=>collapseMap(true);
+$('mapReopen').onclick=()=>collapseMap(false);
+(function initDivider(){
+  const div=$('stageDivider'),stage=document.getElementById('stage'),tl=$('timelineWrap'),mp=$('mapWrap');
+  if(!div)return;let dragging=false;
+  const onMove=e=>{
+    if(!dragging)return;const cx=e.touches?e.touches[0].clientX:e.clientX;
+    const r=stage.getBoundingClientRect();let pct=((cx-r.left)/r.width)*100;
+    pct=Math.max(30,Math.min(80,pct)); // timeline between 30% and 80%
+    tl.style.flex='1 1 '+pct+'%';mp.style.flex='1 1 '+(100-pct)+'%';
+  };
+  const stop=()=>{if(!dragging)return;dragging=false;document.body.style.userSelect='';if(map)map.invalidateSize();try{localStorage.setItem('mm_tl_pct',tl.style.flexBasis||'');}catch(_){}};
+  const start=e=>{dragging=true;document.body.style.userSelect='none';e.preventDefault();};
+  div.addEventListener('mousedown',start);div.addEventListener('touchstart',start,{passive:false});
+  window.addEventListener('mousemove',onMove);window.addEventListener('touchmove',onMove,{passive:false});
+  window.addEventListener('mouseup',stop);window.addEventListener('touchend',stop);
+})();
+function restoreLayoutPrefs(){
+  try{const pct=localStorage.getItem('mm_tl_pct');if(pct&&pct.endsWith('%')){const p=parseFloat(pct);if(p>=30&&p<=80){$('timelineWrap').style.flex='1 1 '+p+'%';$('mapWrap').style.flex='1 1 '+(100-p)+'%';}}}catch(_){}
+  try{if(localStorage.getItem('mm_map_collapsed')==='1')document.body.classList.add('map-collapsed');}catch(_){}
+}
 $('editTripBtn').onclick=()=>openTripModal(true);
 $('slotCancelBtn').onclick=closeSlotModal;
 function closeSlotModal(){$('slotOverlay').classList.remove('show');pickMode=false;$('pickBanner').style.display='none';if(tempMarker){tempMarker.remove();tempMarker=null;}}
