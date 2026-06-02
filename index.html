@@ -45,7 +45,6 @@
   button.soft:hover{transform:translateY(-2px);} button.soft:active{transform:translateY(0);}
   button.green{background:linear-gradient(135deg,#6fcf97,#a8e6c4);box-shadow:0 6px 16px rgba(110,200,150,.45);}
   button.blue{background:linear-gradient(135deg,#7eb6ef,#a9d3ff);box-shadow:0 6px 16px rgba(110,160,230,.4);}
-  button.amber{background:linear-gradient(135deg,#f0b butter,#ffd89b);}
   button.amber{background:linear-gradient(135deg,#efb45f,#ffd89b);box-shadow:0 6px 16px rgba(220,170,80,.4);}
   button.ghost{background:#fff;color:var(--ink);box-shadow:var(--card-shadow);}
   button.tiny{padding:8px 13px;font-size:.82rem;}
@@ -354,7 +353,7 @@ function deserialize(d){
   const start=new Date(d.start),end=new Date(d.end);
   const days=[];let x=new Date(start);while(x<=end){days.push(new Date(x));x=dateAddDays(x,1);if(days.length>60)break;}
   trip={name:d.name,start,end,days,hourStart:d.hourStart??6,hourEnd:d.hourEnd??24,theme:d.theme||'marshmallow'};
-  slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];pending=d.pending||[];
+  slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];pending=ensurePids(d.pending);
   nextId=d.nextId||1;nextStay=d.nextStay||1;nextFlight=d.nextFlight||1;
 }
 function setStat(s){const e=$('saveStat');const map={saving:'Saving…',saved:'Saved ✓',error:'⚠ Save failed',loading:'Loading…',offline:'⚠ Offline'};e.textContent=map[s]||'';e.style.color=s==='error'||s==='offline'?'#e57396':s==='saved'?'var(--mint-ink)':'var(--ink-soft)';}
@@ -374,6 +373,17 @@ async function doPersist(){
 function commit(){renderAll();persistSoon();}
 
 /* ====== PENDING IMPORTS ====== */
+/* Give every pending item a STABLE id once, on the way in (load / refresh).
+   Without this, normalizePending() minted a fresh random pid on every call,
+   so the id stamped on a button never matched the lookup in accept/discard. */
+function ensurePids(arr){
+  let i=0;
+  return (arr||[]).map(p=>{
+    if(!p||typeof p!=='object')return p;
+    if(!p.pid)p.pid='imp'+Date.now().toString(36)+'_'+(i++)+'_'+Math.floor(Math.random()*1e6).toString(36);
+    return p;
+  });
+}
 function updatePendingUI(){
   const n=pending.length;
   $('pendingBtn').style.display=(canEdit)?'inline-block':'none';
@@ -416,17 +426,17 @@ function renderPendList(){
   box.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>discardPending(b.dataset.no));
   box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editThenAccept(b.dataset.edit));
 }
+function findPendingRaw(pid){return pending.find(x=>(x.pid||'')===pid)||pending.find(x=>normalizePending(x).pid===pid);}
 function acceptPending(pid){
-  const idx=pending.findIndex(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);
-  const raw=idx>=0?pending[idx]:pending.find(x=>normalizePending(x).pid===pid);
+  const raw=findPendingRaw(pid);
   if(!raw)return;const p=normalizePending(raw);
   slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
   pending=pending.filter(x=>x!==raw);
   renderPendList();updatePendingUI();commit();
 }
-function discardPending(pid){const raw=pending.find(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);pending=pending.filter(x=>x!==raw);renderPendList();updatePendingUI();commit();}
+function discardPending(pid){const raw=findPendingRaw(pid);if(!raw)return;pending=pending.filter(x=>x!==raw);renderPendList();updatePendingUI();commit();}
 function editThenAccept(pid){
-  const raw=pending.find(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);if(!raw)return;const p=normalizePending(raw);
+  const raw=findPendingRaw(pid);if(!raw)return;const p=normalizePending(raw);
   pending=pending.filter(x=>x!==raw);updatePendingUI();
   $('pendingOverlay').classList.remove('show');
   openSlotModal(null);
@@ -440,7 +450,7 @@ $('pendDiscardAll').onclick=()=>{if(confirm('Discard all pending imports?')){pen
 $('pendRefreshBtn').onclick=async()=>{
   if(!sb||!tripId||!editToken)return;
   $('pendRefreshBtn').textContent='Checking…';
-  try{const row=await dbGet(tripId,editToken);if(row&&row.data){pending=row.data.pending||[];renderPendList();updatePendingUI();}}
+  try{const row=await dbGet(tripId,editToken);if(row&&row.data){pending=ensurePids(row.data.pending);renderPendList();updatePendingUI();renderAll();}}
   catch(e){console.error(e);}
   $('pendRefreshBtn').textContent='🔄 Check for new';
 };
