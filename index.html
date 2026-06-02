@@ -11,14 +11,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    /* ----- THEME CHROME (overridden by applyTheme) — default = Marshmallow ----- */
     --bg1:#fff6fb; --bg2:#f3f0ff;
     --ink:#6e5d77; --ink-soft:#a596ac;
     --accent:#ffd0e2; --accent-deep:#ff9ec4; --accent-ink:#c25a8a;
     --accent2:#e6dcff; --accent2-deep:#bda6ff; --accent2-ink:#7a5ed0;
     --accent-grad:linear-gradient(135deg,#ff9ec4,#ffb3d3);
     --accent2-grad:linear-gradient(135deg,#bda6ff,#cdb9ff);
-    /* ----- FIXED ACTIVITY-TYPE COLORS (constant across all themes = legend) ----- */
     --pink:#ffd0e2; --pink-ink:#c25a8a;
     --cream:#fff1d9; --cream-ink:#c2872f;
     --mint:#cdf3df; --mint-ink:#3f9c6f;
@@ -47,9 +45,13 @@
   button.soft:hover{transform:translateY(-2px);} button.soft:active{transform:translateY(0);}
   button.green{background:linear-gradient(135deg,#6fcf97,#a8e6c4);box-shadow:0 6px 16px rgba(110,200,150,.45);}
   button.blue{background:linear-gradient(135deg,#7eb6ef,#a9d3ff);box-shadow:0 6px 16px rgba(110,160,230,.4);}
+  button.amber{background:linear-gradient(135deg,#f0b butter,#ffd89b);}
+  button.amber{background:linear-gradient(135deg,#efb45f,#ffd89b);box-shadow:0 6px 16px rgba(220,170,80,.4);}
   button.ghost{background:#fff;color:var(--ink);box-shadow:var(--card-shadow);}
   button.tiny{padding:8px 13px;font-size:.82rem;}
-  .add-bar{display:flex;gap:8px;flex-wrap:wrap;}
+  .add-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .pending-btn{position:relative;}
+  .pending-badge{position:absolute;top:-6px;right:-6px;background:#ff7aa8;color:#fff;font-size:.66rem;font-weight:800;min-width:18px;height:18px;border-radius:999px;display:flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 2px 6px rgba(255,120,168,.5);}
   .stage{display:flex;gap:18px;padding:18px;align-items:flex-start;}
   .panel{background:rgba(255,255,255,.78);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:16px;}
   .timeline-wrap{flex:1.5;min-width:0;} .map-wrap{flex:1;position:sticky;top:84px;}
@@ -78,6 +80,12 @@
   .resize-h,.resize-t{position:absolute;left:0;right:0;height:11px;cursor:ns-resize;} .resize-h{bottom:0;} .resize-t{top:0;}
   .resize-h::after,.resize-t::after{content:"";position:absolute;left:50%;width:26px;height:3px;border-radius:3px;background:rgba(0,0,0,.16);transform:translateX(-50%);} .resize-h::after{bottom:3px;} .resize-t::after{top:3px;}
   .conflict{position:absolute;top:3px;right:5px;font-size:.7rem;pointer-events:none;}
+  /* pending draft cards on timeline */
+  .slot.pending{border:2px dashed rgba(120,90,160,.55);opacity:.62;cursor:pointer;}
+  .slot.pending .pend-marks{position:absolute;top:3px;right:4px;display:flex;gap:3px;}
+  .slot.pending .pend-marks button{border:none;cursor:pointer;width:20px;height:20px;border-radius:50%;font-size:.72rem;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.18);}
+  .pend-ok{background:#8fe0b4;color:#256e48;} .pend-no{background:#ffb3b3;color:#9c2a2a;}
+  .pend-tag{position:absolute;bottom:3px;left:8px;font-size:.6rem;font-weight:800;letter-spacing:.4px;opacity:.7;text-transform:uppercase;}
   .flight-buffer{position:absolute;left:6px;right:6px;border-radius:14px;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(180,170,255,.28),rgba(180,170,255,.28) 8px,rgba(180,170,255,.12) 8px,rgba(180,170,255,.12) 16px);border:1px dashed rgba(120,100,210,.4);}
   .flight-buffer span{position:absolute;bottom:3px;left:7px;font-size:.62rem;font-weight:700;color:var(--flight-ink);opacity:.8;}
   .t-meal{background:linear-gradient(160deg,var(--pink),#ffe3ee);color:var(--pink-ink);}
@@ -113,9 +121,18 @@
   .link-box{display:flex;gap:8px;margin-top:5px;}
   .link-box input{flex:1;font-family:monospace;font-size:.8rem;border:2px solid #efeaf3;border-radius:12px;padding:9px 10px;background:#fdfbff;color:var(--ink);}
   .share-kind{font-size:.82rem;font-weight:700;color:var(--ink-soft);margin:14px 0 0;}
-  .share-kind.edit{color:var(--accent-ink);} .share-kind.view{color:var(--blue-ink);}
+  .share-kind.edit{color:var(--accent-ink);} .share-kind.view{color:var(--blue-ink);} .share-kind.import{color:var(--cream-ink);}
   .splash{display:flex;flex-direction:column;align-items:center;justify-content:center;height:70vh;text-align:center;gap:10px;color:var(--ink-soft);}
   .splash .big{font-size:2.6rem;}
+  /* pending tray modal */
+  .pend-list{display:flex;flex-direction:column;gap:10px;margin:8px 0 14px;}
+  .pend-card{border:2px dashed rgba(120,90,160,.4);border-radius:16px;padding:12px;background:#fdfbff;}
+  .pend-card .pc-top{display:flex;align-items:center;gap:8px;}
+  .pend-card .pc-title{font-family:'Fredoka';font-weight:600;font-size:.95rem;flex:1;}
+  .pend-card .pc-meta{font-size:.78rem;color:var(--ink-soft);margin-top:4px;}
+  .pend-card .pc-src{font-size:.72rem;color:var(--ink-soft);margin-top:4px;font-style:italic;}
+  .pend-card .pc-actions{display:flex;gap:8px;margin-top:10px;}
+  .pend-empty{color:var(--ink-soft);text-align:center;padding:18px;font-style:italic;}
 </style>
 </head>
 <body>
@@ -138,6 +155,7 @@
   <span class="save-stat" id="saveStat"></span>
   <span class="view-pill" id="viewPill" style="display:none;">👁 View only</span>
   <div class="add-bar" id="addBar" style="display:none;">
+    <button class="soft ghost tiny pending-btn" id="pendingBtn" style="display:none;">📥 Pending<span class="pending-badge" id="pendingBadge">0</span></button>
     <button class="soft ghost tiny" id="editTripBtn">✏️ Trip</button>
     <button class="soft ghost tiny" id="addFlightBtn">✈️ Flight</button>
     <button class="soft ghost tiny" id="addHotelBtn">🏨 Hotel</button>
@@ -229,6 +247,23 @@
   </div>
 </div>
 
+<!-- Pending tray -->
+<div class="overlay" id="pendingOverlay">
+  <div class="modal">
+    <h2>📥 Pending imports</h2>
+    <p class="hint">Drafts from forwarded reservation emails. Accept ✓ to drop them onto the timeline, or discard ✗. They also appear faded on the timeline itself.</p>
+    <div class="pend-list" id="pendList"></div>
+    <div class="modal-actions">
+      <button class="soft ghost tiny" id="pendRefreshBtn">🔄 Check for new</button>
+      <div class="spacer"></div>
+      <button class="soft ghost tiny" id="pendDiscardAll" style="display:none;">Discard all</button>
+      <button class="soft green tiny" id="pendAcceptAll" style="display:none;">Accept all</button>
+      <button class="soft ghost tiny" id="pendCloseBtn">Done</button>
+    </div>
+    <p class="hint" id="pendSimWrap" style="margin-top:14px;display:none;">Testing tools: <a href="#" id="pendSimLink" style="color:var(--accent-ink);font-weight:700;">simulate an incoming reservation</a> (adds a fake pending item so you can try ✓/✗ without Gmail).</p>
+  </div>
+</div>
+
 <!-- Share -->
 <div class="overlay" id="shareOverlay">
   <div class="modal">
@@ -239,7 +274,10 @@
     <div class="link-box"><input id="editLinkInput" readonly /><button class="soft tiny" id="copyEditBtn">Copy</button></div>
     <p class="share-kind view">👁 View link — they can only look</p>
     <div class="link-box"><input id="viewLinkInput" readonly /><button class="soft blue tiny" id="copyViewBtn">Copy</button></div>
-    <div class="modal-actions" style="margin-top:18px;"><div class="spacer"></div><button class="soft ghost tiny" id="shareCloseBtn">Done</button></div>
+    <p class="share-kind import">📥 Import token — for the email script only (Phase 3)</p>
+    <div class="link-box"><input id="importTokenInput" readonly /><button class="soft tiny" id="copyImportBtn">Copy</button></div>
+    <p class="hint" style="margin-top:6px;">This token can only add pending drafts — it can't read or edit. We'll paste it into the Gmail script in the next step.</p>
+    <div class="modal-actions" style="margin-top:8px;"><div class="spacer"></div><button class="soft ghost tiny" id="shareCloseBtn">Done</button></div>
   </div>
 </div>
 
@@ -257,12 +295,11 @@
 </div>
 
 <script>
-/* ====== Marshmallow Travel Planner — Phase 2 + Themes ====== */
+/* ====== Marshmallow Travel Planner — Phase 3 Half A (pending imports) ====== */
 const SB_URL='https://ejvtpaiuzcyufrtwafwr.supabase.co';
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqdnRwYWl1emN5dWZydHdhZndyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyOTk5NjYsImV4cCI6MjA5NTg3NTk2Nn0.7SRc5DcYAbATXIkXfaRl5slHeAM8bXSSyJ9zI0g-ulY';
 const sb = window.supabase ? window.supabase.createClient(SB_URL, SB_ANON) : null;
 
-/* ====== THEMES (chrome only; type colors stay fixed) ====== */
 const THEMES={
   marshmallow:{'--bg1':'#fff6fb','--bg2':'#f3f0ff','--ink':'#6e5d77','--ink-soft':'#a596ac','--accent':'#ffd0e2','--accent-deep':'#ff9ec4','--accent-ink':'#c25a8a','--accent2':'#e6dcff','--accent2-deep':'#bda6ff','--accent2-ink':'#7a5ed0','--accent-grad':'linear-gradient(135deg,#ff9ec4,#ffb3d3)','--accent2-grad':'linear-gradient(135deg,#bda6ff,#cdb9ff)'},
   spring:{'--bg1':'#f4fbef','--bg2':'#fdfbe6','--ink':'#566b4c','--ink-soft':'#9aa888','--accent':'#d6ecbb','--accent-deep':'#9bd368','--accent-ink':'#5b9b3e','--accent2':'#ffe2ee','--accent2-deep':'#ffb3d1','--accent2-ink':'#d96b97','--accent-grad':'linear-gradient(135deg,#9bd368,#c3e8a0)','--accent2-grad':'linear-gradient(135deg,#ffb3d1,#ffd0e2)'},
@@ -272,7 +309,7 @@ const THEMES={
 };
 let currentTheme=localStorage.getItem('mm_theme')||'marshmallow';
 function applyTheme(name){const t=THEMES[name]||THEMES.marshmallow;Object.entries(t).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));currentTheme=name;const sel=document.getElementById('themeSelect');if(sel)sel.value=name;}
-applyTheme(currentTheme); // apply immediately so splash matches
+applyTheme(currentTheme);
 
 const PX_PER_HOUR=56,SNAP=15,MIN_DUR=30;
 const TYPES=[
@@ -288,11 +325,11 @@ const TYPES=[
 const PICKABLE=['meal','cafe','sight','hobby','transit','free'];
 const typeOf=id=>TYPES.find(t=>t.id===id)||TYPES[0];
 
-let trip=null,slots=[],stays=[],flights=[],nextId=1,nextStay=1,nextFlight=1;
+let trip=null,slots=[],stays=[],flights=[],pending=[],nextId=1,nextStay=1,nextFlight=1;
 let map,markerLayer,activeDayFilter='all';
 let editingSlotId=null,formType='meal',editingHotelId=null,editingFlightId=null;
 let pendingLatLng=null,pickMode=false,pickTarget=null,tempMarker=null;
-let tripId=null,editToken=null,viewToken=null,canEdit=true,suppressHash=false;
+let tripId=null,editToken=null,viewToken=null,importToken=null,canEdit=true,suppressHash=false;
 
 const $=id=>document.getElementById(id);
 const HS=()=>trip.hourStart,HE=()=>trip.hourEnd;
@@ -300,6 +337,8 @@ function minsToTimeStr(m){let h=Math.floor(m/60),mm=m%60;const ap=h>=12&&h<24?'P
 function minsToInputVal(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
 function inputValToMins(v){const[h,m]=v.split(':').map(Number);return h*60+m;}
 function snap(m){return Math.round(m/SNAP)*SNAP;}
+function clampDay(i){return Math.max(0,Math.min(trip.days.length-1,i|0));}
+function clampMin(m){return Math.max(HS()*60,Math.min(HE()*60,m));}
 function dateAddDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
 function fmtDate(d){return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
 function fmtDow(d){return d.toLocaleDateString(undefined,{weekday:'short'});}
@@ -307,16 +346,15 @@ function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function resStr(x){let p=[];if(x.resname)p.push('🎫 '+x.resname);if(x.resnum)p.push('#'+x.resnum);return p.join('  ');}
 function gmaps(lat,lng,name){if(lat!=null)return'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;if(name)return'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name);return null;}
 
-/* ---------- THEME PICKER ---------- */
 $('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}if(map)setTimeout(()=>map.invalidateSize(),50);};
 
 /* ====== PERSISTENCE ====== */
-function serialize(){return{v:3,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,nextId,nextStay,nextFlight};}
+function serialize(){return{v:4,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,pending,nextId,nextStay,nextFlight};}
 function deserialize(d){
   const start=new Date(d.start),end=new Date(d.end);
   const days=[];let x=new Date(start);while(x<=end){days.push(new Date(x));x=dateAddDays(x,1);if(days.length>60)break;}
   trip={name:d.name,start,end,days,hourStart:d.hourStart??6,hourEnd:d.hourEnd??24,theme:d.theme||'marshmallow'};
-  slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];
+  slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];pending=d.pending||[];
   nextId=d.nextId||1;nextStay=d.nextStay||1;nextFlight=d.nextFlight||1;
 }
 function setStat(s){const e=$('saveStat');const map={saving:'Saving…',saved:'Saved ✓',error:'⚠ Save failed',loading:'Loading…',offline:'⚠ Offline'};e.textContent=map[s]||'';e.style.color=s==='error'||s==='offline'?'#e57396':s==='saved'?'var(--mint-ink)':'var(--ink-soft)';}
@@ -328,23 +366,108 @@ function persistSoon(){if(!canEdit||!sb)return;setStat('saving');clearTimeout(sa
 async function doPersist(){
   if(!sb){setStat('offline');return;}
   try{
-    if(!tripId){const row=await dbCreate();tripId=row.id;editToken=row.edit_token;viewToken=row.view_token;suppressHash=true;location.hash='#/trip/'+tripId+'?t='+editToken;updateShareUI();}
+    if(!tripId){const row=await dbCreate();tripId=row.id;editToken=row.edit_token;viewToken=row.view_token;importToken=row.import_token||null;suppressHash=true;location.hash='#/trip/'+tripId+'?t='+editToken;updateShareUI();}
     else{const ts=await dbSave();if(ts==null){setStat('error');return;}}
     setStat('saved');
   }catch(e){console.error(e);setStat('error');}
 }
 function commit(){renderAll();persistSoon();}
 
-/* ====== SHARE LINKS ====== */
+/* ====== PENDING IMPORTS ====== */
+function updatePendingUI(){
+  const n=pending.length;
+  $('pendingBtn').style.display=(canEdit)?'inline-block':'none';
+  $('pendingBadge').textContent=n;
+  $('pendingBadge').style.display=n>0?'flex':'none';
+  $('pendingBtn').style.opacity=n>0?'1':'.6';
+}
+function normalizePending(p){
+  // accept loose field names from the email parser; fill safe defaults
+  const typeId=(TYPES.find(t=>t.id===(p.type||'').toLowerCase())||{}).id||'free';
+  let dayIndex=0;
+  if(typeof p.dayIndex==='number')dayIndex=p.dayIndex;
+  else if(p.date){const target=new Date(p.date+'T00:00');dayIndex=trip.days.findIndex(d=>d.toISOString().slice(0,10)===target.toISOString().slice(0,10));if(dayIndex<0)dayIndex=0;}
+  dayIndex=clampDay(dayIndex);
+  let sm=typeof p.startMin==='number'?p.startMin:(p.start?inputValToMins(p.start):12*60);
+  let em=typeof p.endMin==='number'?p.endMin:(p.end?inputValToMins(p.end):sm+60);
+  sm=clampMin(sm);em=clampMin(Math.max(sm+MIN_DUR,em));
+  return{pid:p.pid||('p'+Date.now()+Math.floor(Math.random()*1000)),type:typeId,title:p.title||'Imported item',dayIndex,startMin:sm,endMin:em,
+    loc:p.loc||p.location||'',resname:p.resname||p.reservation_name||'',resnum:p.resnum||p.reservation_number||'',notes:p.notes||'',
+    lat:p.lat??null,lng:p.lng??null,source:p.source||p.from||'email'};
+}
+function openPendingTray(){renderPendList();$('pendSimWrap').style.display='block';$('pendingOverlay').classList.add('show');}
+$('pendingBtn').onclick=openPendingTray;
+$('pendCloseBtn').onclick=()=>$('pendingOverlay').classList.remove('show');
+function renderPendList(){
+  const box=$('pendList');box.innerHTML='';
+  if(!pending.length){box.innerHTML='<div class="pend-empty">No pending imports right now. Forwarded reservations will appear here.</div>';$('pendAcceptAll').style.display='none';$('pendDiscardAll').style.display='none';return;}
+  $('pendAcceptAll').style.display='inline-block';$('pendDiscardAll').style.display='inline-block';
+  pending.forEach(raw=>{
+    const p=normalizePending(raw);const t=typeOf(p.type);
+    const card=document.createElement('div');card.className='pend-card';
+    card.innerHTML='<div class="pc-top"><span>'+t.emoji+'</span><span class="pc-title">'+esc(p.title)+'</span></div>'+
+      '<div class="pc-meta">Day '+(p.dayIndex+1)+' · '+minsToTimeStr(p.startMin)+'–'+minsToTimeStr(p.endMin)+(p.loc?' · 📍 '+esc(p.loc):'')+'</div>'+
+      (resStr(p)?'<div class="pc-meta">'+esc(resStr(p))+'</div>':'')+
+      '<div class="pc-src">from: '+esc(p.source)+'</div>'+
+      '<div class="pc-actions"><button class="soft green tiny" data-ok="'+p.pid+'">✓ Accept</button><button class="soft ghost tiny" data-edit="'+p.pid+'">✎ Edit first</button><button class="soft danger tiny" data-no="'+p.pid+'">✗ Discard</button></div>';
+    box.appendChild(card);
+  });
+  box.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>acceptPending(b.dataset.ok));
+  box.querySelectorAll('[data-no]').forEach(b=>b.onclick=()=>discardPending(b.dataset.no));
+  box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editThenAccept(b.dataset.edit));
+}
+function acceptPending(pid){
+  const idx=pending.findIndex(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);
+  const raw=idx>=0?pending[idx]:pending.find(x=>normalizePending(x).pid===pid);
+  if(!raw)return;const p=normalizePending(raw);
+  slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
+  pending=pending.filter(x=>x!==raw);
+  renderPendList();updatePendingUI();commit();
+}
+function discardPending(pid){const raw=pending.find(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);pending=pending.filter(x=>x!==raw);renderPendList();updatePendingUI();commit();}
+function editThenAccept(pid){
+  const raw=pending.find(x=>(x.pid||'')===pid||normalizePending(x).pid===pid);if(!raw)return;const p=normalizePending(raw);
+  pending=pending.filter(x=>x!==raw);updatePendingUI();
+  $('pendingOverlay').classList.remove('show');
+  openSlotModal(null);
+  $('s_title').value=p.title;formType=PICKABLE.includes(p.type)?p.type:'free';buildTypePick();
+  $('s_day').value=p.dayIndex;$('s_start').value=minsToInputVal(p.startMin);$('s_end').value=minsToInputVal(p.endMin);
+  $('s_loc').value=p.loc;$('s_resname').value=p.resname;$('s_resnum').value=p.resnum;$('s_notes').value=p.notes;
+  if(p.lat!=null){pendingLatLng={lat:p.lat,lng:p.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}
+}
+$('pendAcceptAll').onclick=()=>{[...pending].forEach(raw=>{const p=normalizePending(raw);slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});});pending=[];renderPendList();updatePendingUI();commit();};
+$('pendDiscardAll').onclick=()=>{if(confirm('Discard all pending imports?')){pending=[];renderPendList();updatePendingUI();commit();}};
+$('pendRefreshBtn').onclick=async()=>{
+  if(!sb||!tripId||!editToken)return;
+  $('pendRefreshBtn').textContent='Checking…';
+  try{const row=await dbGet(tripId,editToken);if(row&&row.data){pending=row.data.pending||[];renderPendList();updatePendingUI();}}
+  catch(e){console.error(e);}
+  $('pendRefreshBtn').textContent='🔄 Check for new';
+};
+/* simulate an incoming reservation (testing only) */
+$('pendSimLink').onclick=(e)=>{
+  e.preventDefault();
+  const samples=[
+    {type:'meal',title:'Dinner at Ichiran',loc:'Ichiran Shibuya, Tokyo',start:'19:00',end:'20:30',resname:'Lin',resnum:'IC-48213',source:'noreply@ichiran.com'},
+    {type:'hotel',title:'Hotel check-in (HOTEL MYSTAYS)',loc:'Kanazawa Station, Japan',start:'15:00',end:'15:30',resnum:'MY-99120',source:'booking.com'},
+    {type:'sight',title:'Kenroku-en Garden tickets',loc:'Kenrokuen, Kanazawa',start:'10:00',end:'12:00',resnum:'KEN-7781',source:'klook.com'},
+  ];
+  const pick=samples[Math.floor(Math.random()*samples.length)];
+  pending.push({...pick,pid:'p'+Date.now()+Math.floor(Math.random()*1000)});
+  renderPendList();updatePendingUI();commit();
+};
+
+/* ====== SHARE ====== */
 function shareBase(){return location.origin+location.pathname;}
 function editLink(){return shareBase()+'#/trip/'+tripId+'?t='+editToken;}
 function viewLink(){return shareBase()+'#/trip/'+tripId+'?t='+viewToken;}
-function updateShareUI(){if(!tripId)return;$('shareBtn').style.display=canEdit?'inline-block':'none';if(editToken)$('editLinkInput').value=editLink();if(viewToken)$('viewLinkInput').value=viewLink();}
+function updateShareUI(){if(!tripId)return;$('shareBtn').style.display=canEdit?'inline-block':'none';if(editToken)$('editLinkInput').value=editLink();if(viewToken)$('viewLinkInput').value=viewLink();$('importTokenInput').value=importToken||'(save the trip once to generate)';}
 $('shareBtn').onclick=()=>{updateShareUI();$('shareLocalWarn').style.display=(location.protocol==='file:')?'block':'none';$('shareOverlay').classList.add('show');};
 $('shareCloseBtn').onclick=()=>$('shareOverlay').classList.remove('show');
 function copyField(inp){inp.select();inp.setSelectionRange(0,99999);try{navigator.clipboard.writeText(inp.value);}catch(_){document.execCommand('copy');}}
 $('copyEditBtn').onclick=function(){copyField($('editLinkInput'));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1200);};
 $('copyViewBtn').onclick=function(){copyField($('viewLinkInput'));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1200);};
+$('copyImportBtn').onclick=function(){copyField($('importTokenInput'));this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1200);};
 
 /* ---------- TRIP ---------- */
 function openTripModal(isEdit){
@@ -383,7 +506,7 @@ function bootUI(){
   $('viewPill').style.display=canEdit?'none':'inline-block';
   $('tripNameLbl').textContent=trip.name;
   $('tripDatesLbl').textContent=fmtDate(trip.start)+' – '+fmtDate(trip.end)+'  ·  '+trip.days.length+' days';
-  renderGutter();renderColumns();renderDayToggle();if(!map)initMap();renderAll();updateShareUI();
+  renderGutter();renderColumns();renderDayToggle();if(!map)initMap();renderAll();updateShareUI();updatePendingUI();
 }
 function renderGutter(){
   const g=$('gutter');g.innerHTML='';
@@ -411,7 +534,7 @@ function renderDayToggle(){
   const mk=(l,v)=>{const b=document.createElement('button');b.className='chip'+(activeDayFilter===v?' active':'');b.textContent=l;b.onclick=()=>{activeDayFilter=v;renderDayToggle();refreshMarkers();};dt.appendChild(b);};
   trip.days.forEach((d,i)=>mk('Day '+(i+1),i));mk('All','all');
 }
-function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();refreshMarkers();}
+function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();renderPendingSlots();refreshMarkers();}
 function overlaps(a,b){return a.dayIndex===b.dayIndex&&a.startMin<b.endMin&&b.startMin<a.endMin;}
 function conflictName(sl){const c=slots.find(o=>o.id!==sl.id&&overlaps(sl,o));return c?c.title:null;}
 function positionSlot(el,sl){el.style.top=((sl.startMin-HS()*60)/60*PX_PER_HOUR)+'px';el.style.height=Math.max(22,((sl.endMin-sl.startMin)/60*PX_PER_HOUR))+'px';}
@@ -423,6 +546,19 @@ function renderSlots(){
     const conf=conflictName(sl);
     el.innerHTML='<div class="resize-t"></div><div class="s-title"><span class="s-emoji">'+t.emoji+'</span> '+esc(sl.title)+'</div><div class="s-time">'+minsToTimeStr(sl.startMin)+' – '+minsToTimeStr(sl.endMin)+'</div>'+(sl.loc?'<div class="s-loc">📍 '+esc(sl.loc)+'</div>':'')+(conf?'<div class="conflict" title="overlaps with '+esc(conf)+'">⚠️</div>':'')+'<div class="resize-h"></div>';
     area.appendChild(el);if(canEdit)attachDrag(el,sl);
+  });
+}
+function renderPendingSlots(){
+  if(!canEdit)return;
+  pending.forEach(raw=>{
+    const p=normalizePending(raw);const area=gridAreaOf(p.dayIndex);if(!area)return;const t=typeOf(p.type);
+    const el=document.createElement('div');el.className='slot '+t.cls+' pending';
+    el.style.top=((p.startMin-HS()*60)/60*PX_PER_HOUR)+'px';el.style.height=Math.max(24,((p.endMin-p.startMin)/60*PX_PER_HOUR))+'px';
+    el.innerHTML='<div class="s-title"><span class="s-emoji">'+t.emoji+'</span> '+esc(p.title)+'</div><div class="s-time">'+minsToTimeStr(p.startMin)+' – '+minsToTimeStr(p.endMin)+'</div>'+(p.loc?'<div class="s-loc">📍 '+esc(p.loc)+'</div>':'')+'<div class="pend-tag">pending</div><div class="pend-marks"><button class="pend-ok" title="Accept">✓</button><button class="pend-no" title="Discard">✗</button></div>';
+    el.querySelector('.pend-ok').onclick=(ev)=>{ev.stopPropagation();acceptPending(p.pid);};
+    el.querySelector('.pend-no').onclick=(ev)=>{ev.stopPropagation();discardPending(p.pid);};
+    el.onclick=()=>openPendingTray();
+    area.appendChild(el);
   });
 }
 function renderStays(){
@@ -594,7 +730,7 @@ $('exHtml').onclick=()=>{const doc='<!DOCTYPE html><html lang="en"><head><meta c
 $('exImg').onclick=async()=>{const t=THEMES[currentTheme]||THEMES.marshmallow;const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:520px;background:'+agendaBG()+';';const st=document.createElement('style');st.textContent=agendaCSS();host.appendChild(st);const c=document.createElement('div');c.innerHTML=agendaHTML();host.appendChild(c);document.body.appendChild(host);try{const canvas=await html2canvas(host,{scale:2,backgroundColor:t['--bg1'],useCORS:true});const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=slug()+'-wallpaper.png';document.body.appendChild(a);a.click();a.remove();}catch(e){alert('Could not render image. Try the locked web page instead.');}host.remove();$('exportOverlay').classList.remove('show');};
 
 /* ---------- backdrop-to-close ---------- */
-[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
+[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['pendingOverlay',()=>$('pendingOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
 
 /* ---------- ROUTING + START ---------- */
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const m=h.match(/^trip\/([^?]+)\?t=(.+)$/);return m?{id:m[1],token:m[2]}:null;}
@@ -607,7 +743,7 @@ async function loadFromHash(){
   try{
     const row=await dbGet(ctx.id,ctx.token);
     if(!row){showSplash('This trip link looks invalid or has expired. Double-check the link.');return;}
-    tripId=row.id;canEdit=row.can_edit;viewToken=row.view_token||null;editToken=row.edit_token||(row.can_edit?ctx.token:null);
+    tripId=row.id;canEdit=row.can_edit;viewToken=row.view_token||null;editToken=row.edit_token||(row.can_edit?ctx.token:null);importToken=row.import_token||null;
     deserialize(row.data);bootUI();setStat(canEdit?'saved':'');
   }catch(e){console.error(e);showSplash('Couldn’t load this trip. Check your connection and reload.');setStat('error');}
 }
