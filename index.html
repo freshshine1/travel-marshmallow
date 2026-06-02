@@ -132,6 +132,33 @@
   .pend-card .pc-src{font-size:.72rem;color:var(--ink-soft);margin-top:4px;font-style:italic;}
   .pend-card .pc-actions{display:flex;gap:8px;margin-top:10px;}
   .pend-empty{color:var(--ink-soft);text-align:center;padding:18px;font-style:italic;}
+  /* ===== Phase 5: profiles + change log ===== */
+  .me-chip{display:inline-flex;align-items:center;gap:6px;font-family:'Quicksand';font-weight:700;font-size:.82rem;color:var(--ink);background:#fff;box-shadow:var(--card-shadow);border:none;cursor:pointer;border-radius:999px;padding:7px 13px;}
+  .me-chip .me-dot{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;}
+  .who-list{display:flex;flex-direction:column;gap:8px;margin:6px 0 14px;}
+  .who-row{display:flex;align-items:center;gap:10px;border:2px solid #efeaf3;border-radius:16px;padding:10px 12px;cursor:pointer;background:#fdfbff;transition:border-color .12s ease;}
+  .who-row:hover{border-color:var(--accent-deep);}
+  .who-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex:0 0 30px;}
+  .who-name{font-family:'Fredoka';font-weight:600;flex:1;}
+  .who-lock{font-size:.78rem;color:var(--ink-soft);}
+  .emoji-pick,.color-pick{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;}
+  .emoji-pick button{border:none;cursor:pointer;border-radius:12px;padding:6px 9px;font-size:1.1rem;background:#f4f0fa;opacity:.6;}
+  .emoji-pick button.sel{opacity:1;box-shadow:0 3px 9px rgba(120,110,150,.3);transform:scale(1.08);background:#fff;}
+  .color-pick button{width:26px;height:26px;border-radius:50%;border:3px solid transparent;cursor:pointer;}
+  .color-pick button.sel{border-color:var(--ink-soft);transform:scale(1.1);}
+  .restore-code{font-family:monospace;font-weight:700;font-size:1.1rem;letter-spacing:2px;color:var(--accent-ink);background:#fdf3f8;border-radius:12px;padding:10px 12px;text-align:center;margin-top:6px;}
+  .log-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;text-orientation:mixed;background:var(--accent2-grad);color:#fff;font-family:'Quicksand';font-weight:700;font-size:.8rem;border:none;cursor:pointer;padding:14px 8px;border-radius:14px 0 0 14px;box-shadow:-4px 0 14px rgba(120,110,150,.28);z-index:600;letter-spacing:1px;}
+  .log-panel{position:fixed;top:0;right:0;height:100%;width:330px;max-width:88vw;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);box-shadow:-12px 0 40px rgba(90,80,120,.28);z-index:900;transform:translateX(100%);transition:transform .26s ease;display:flex;flex-direction:column;}
+  .log-panel.open{transform:translateX(0);}
+  .log-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid rgba(150,140,170,.18);}
+  .log-head h3{margin:0;font-size:1.05rem;color:var(--accent-ink);flex:1;}
+  .log-close{border:none;background:#f4f0fa;cursor:pointer;border-radius:50%;width:30px;height:30px;font-size:1rem;color:var(--ink);}
+  .log-scroll{flex:1;overflow-y:auto;padding:12px 16px;}
+  .log-item{display:flex;gap:9px;padding:9px 0;border-bottom:1px solid rgba(150,140,170,.12);font-size:.84rem;}
+  .log-item .li-av{width:24px;height:24px;border-radius:50%;flex:0 0 24px;display:flex;align-items:center;justify-content:center;font-size:.8rem;}
+  .log-item .li-body{flex:1;line-height:1.3;} .log-item .li-who{font-weight:700;}
+  .log-item .li-act{color:var(--ink-soft);} .log-item .li-time{font-size:.72rem;color:var(--ink-soft);margin-top:1px;}
+  .log-empty{color:var(--ink-soft);text-align:center;padding:24px 10px;font-style:italic;font-size:.86rem;}
 </style>
 </head>
 <body>
@@ -154,6 +181,7 @@
   <span class="save-stat" id="saveStat"></span>
   <span class="view-pill" id="viewPill" style="display:none;">👁 View only</span>
   <div class="add-bar" id="addBar" style="display:none;">
+    <button class="me-chip" id="meChip" style="display:none;"><span class="me-dot" id="meDot">🙂</span><span id="meName">Set name</span></button>
     <button class="soft ghost tiny pending-btn" id="pendingBtn" style="display:none;">📥 Pending<span class="pending-badge" id="pendingBadge">0</span></button>
     <button class="soft ghost tiny" id="editTripBtn">✏️ Trip</button>
     <button class="soft ghost tiny" id="addFlightBtn">✈️ Flight</button>
@@ -293,6 +321,64 @@
   </div>
 </div>
 
+<!-- Who are you? (profile picker) -->
+<div class="overlay" id="whoOverlay">
+  <div class="modal">
+    <h2 id="whoTitle">👋 Who's editing?</h2>
+    <p class="hint">Pick yourself so the family can see who changed what. This isn't a login — just a friendly name tag, saved on this device.</p>
+    <div id="whoExisting">
+      <div class="who-list" id="whoList"></div>
+    </div>
+    <div id="whoCreate" style="display:none;">
+      <label class="field">Your name<input id="who_name" placeholder="e.g. Mom, Dad, Aki" maxlength="24" /></label>
+      <label class="field">Pick an emoji<div class="emoji-pick" id="whoEmoji"></div></label>
+      <label class="field">Pick a color<div class="color-pick" id="whoColor"></div></label>
+      <label class="field">Optional 4-digit PIN<input id="who_pin" type="tel" inputmode="numeric" maxlength="4" placeholder="leave blank for none" /></label>
+      <p class="hint">A PIN is a gentle "please don't pick my name" gate among family — not real security.</p>
+      <div id="whoRestoreShow" style="display:none;">
+        <p class="share-kind import">🔑 Your restore code — keep it to use this name on another device</p>
+        <div class="restore-code" id="whoRestoreCode"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="soft ghost tiny" id="whoNewBtn">＋ New person</button>
+      <button class="soft ghost tiny" id="whoRestoreBtn">🔑 Restore code</button>
+      <div class="spacer"></div>
+      <button class="soft ghost tiny" id="whoBackBtn" style="display:none;">← Back</button>
+      <button class="soft green" id="whoSaveBtn" style="display:none;">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN prompt -->
+<div class="overlay" id="pinOverlay">
+  <div class="modal" style="max-width:320px;">
+    <h2 id="pinTitle">🔒 Enter PIN</h2>
+    <p class="hint" id="pinHint">Enter the 4-digit PIN for this profile.</p>
+    <label class="field"><input id="pin_input" type="tel" inputmode="numeric" maxlength="4" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:8px;" /></label>
+    <div class="loc-status" id="pinStatus"></div>
+    <div class="modal-actions"><div class="spacer"></div><button class="soft ghost tiny" id="pinCancelBtn">Cancel</button><button class="soft green" id="pinOkBtn">OK</button></div>
+  </div>
+</div>
+
+<!-- Restore code entry -->
+<div class="overlay" id="restoreOverlay">
+  <div class="modal" style="max-width:340px;">
+    <h2>🔑 Restore your name</h2>
+    <p class="hint">Made a profile on another device? Enter its restore code to use the same name tag here.</p>
+    <label class="field"><input id="restore_input" placeholder="e.g. K7P-9QX" style="text-align:center;font-family:monospace;font-size:1.1rem;letter-spacing:2px;" /></label>
+    <div class="loc-status" id="restoreStatus"></div>
+    <div class="modal-actions"><div class="spacer"></div><button class="soft ghost tiny" id="restoreCancelBtn">Cancel</button><button class="soft green" id="restoreOkBtn">Restore</button></div>
+  </div>
+</div>
+
+<!-- History panel -->
+<button class="log-toggle" id="logToggle" style="display:none;">🕘 History</button>
+<div class="log-panel" id="logPanel">
+  <div class="log-head"><h3>🕘 Change history</h3><button class="log-close" id="logCloseBtn">✕</button></div>
+  <div class="log-scroll" id="logScroll"></div>
+</div>
+
 <script>
 /* ====== Marshmallow Travel Planner — Phase 3 Half A (pending imports) ====== */
 const SB_URL='https://ejvtpaiuzcyufrtwafwr.supabase.co';
@@ -324,11 +410,12 @@ const TYPES=[
 const PICKABLE=['meal','cafe','sight','hobby','transit','free'];
 const typeOf=id=>TYPES.find(t=>t.id===id)||TYPES[0];
 
-let trip=null,slots=[],stays=[],flights=[],pending=[],nextId=1,nextStay=1,nextFlight=1;
+let trip=null,slots=[],stays=[],flights=[],pending=[],profiles=[],log=[],nextId=1,nextStay=1,nextFlight=1;
 let map,markerLayer,activeDayFilter='all';
 let editingSlotId=null,formType='meal',editingHotelId=null,editingFlightId=null;
 let pendingLatLng=null,pickMode=false,pickTarget=null,tempMarker=null;
 let tripId=null,editToken=null,viewToken=null,importToken=null,canEdit=true,suppressHash=false;
+let myProfileId=null,pendingMutationDesc=null; // identity (edit-link holders only)
 
 const $=id=>document.getElementById(id);
 const HS=()=>trip.hourStart,HE=()=>trip.hourEnd;
@@ -348,12 +435,13 @@ function gmaps(lat,lng,name){if(lat!=null)return'https://www.google.com/maps/dir
 $('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}if(map)setTimeout(()=>map.invalidateSize(),50);};
 
 /* ====== PERSISTENCE ====== */
-function serialize(){return{v:4,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,pending,nextId,nextStay,nextFlight};}
+function serialize(){return{v:5,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,pending,profiles,log,nextId,nextStay,nextFlight};}
 function deserialize(d){
   const start=new Date(d.start),end=new Date(d.end);
   const days=[];let x=new Date(start);while(x<=end){days.push(new Date(x));x=dateAddDays(x,1);if(days.length>60)break;}
   trip={name:d.name,start,end,days,hourStart:d.hourStart??6,hourEnd:d.hourEnd??24,theme:d.theme||'marshmallow'};
   slots=d.slots||[];stays=d.stays||[];flights=d.flights||[];pending=ensurePids(d.pending);
+  profiles=d.profiles||[];log=d.log||[];
   nextId=d.nextId||1;nextStay=d.nextStay||1;nextFlight=d.nextFlight||1;
 }
 function setStat(s){const e=$('saveStat');const map={saving:'Saving…',saved:'Saved ✓',error:'⚠ Save failed',loading:'Loading…',offline:'⚠ Offline'};e.textContent=map[s]||'';e.style.color=s==='error'||s==='offline'?'#e57396':s==='saved'?'var(--mint-ink)':'var(--ink-soft)';}
@@ -371,6 +459,149 @@ async function doPersist(){
   }catch(e){console.error(e);setStat('error');}
 }
 function commit(){renderAll();persistSoon();}
+
+/* ====== PROFILES + CHANGE LOG (Phase 5 — identity, not security) ====== */
+const EMOJI_CHOICES=['🌸','🦕','🐰','🐻','🦊','🐼','🐧','🦁','🐙','🌟','🍡','🎈','🚀','🌈','🐳','🦄'];
+const COLOR_CHOICES=['#ff9ec4','#bda6ff','#8fe0b4','#9ecbff','#ffd89b','#ff9d76','#33cde0','#d76a5c'];
+const LKEY='mm_profile_'; // per-trip localStorage key prefix
+let whoEmojiSel=EMOJI_CHOICES[0],whoColorSel=COLOR_CHOICES[0],pinResolver=null;
+
+function pinHash(pin){ // light, non-cryptographic — honestly just anti-impersonation
+  let h=0;const s='mm'+pin+'salt';for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return 'h'+(h>>>0).toString(36);
+}
+function genId(p){return p+Math.random().toString(36).slice(2,8);}
+function genRestoreCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<6;i++){if(i===3)s+='-';s+=c[Math.floor(Math.random()*c.length)];}return s;}
+function myProfile(){return profiles.find(p=>p.id===myProfileId)||null;}
+function rememberMe(id){myProfileId=id;try{localStorage.setItem(LKEY+tripId,id);}catch(_){}}
+function loadRememberedMe(){try{const id=localStorage.getItem(LKEY+tripId);if(id&&profiles.some(p=>p.id===id))myProfileId=id;}catch(_){}}
+
+function updateMeChip(){
+  const chip=$('meChip');if(!chip)return;
+  if(!canEdit){chip.style.display='none';return;}
+  chip.style.display='inline-flex';
+  const me=myProfile();
+  if(me){$('meDot').textContent=me.emoji;$('meDot').style.background=me.color;$('meName').textContent=me.name;}
+  else{$('meDot').textContent='🙂';$('meDot').style.background='#eee';$('meName').textContent='Set name';}
+}
+$('meChip') && ($('meChip').onclick=()=>openWho(false));
+
+/* The gate: call before any edit-link mutation. If we already know who you are,
+   proceed immediately. Otherwise stash the action's description, open the picker,
+   and resume once a profile is chosen. */
+function withIdentity(desc,fn){
+  if(!canEdit){fn();return;}
+  if(myProfileId&&myProfile()){runMutation(desc,fn);return;}
+  pendingMutationDesc={desc,fn};
+  openWho(true);
+}
+function runMutation(desc,fn){
+  fn();
+  if(desc)addLog(desc);
+  commit();
+}
+function addLog(desc){
+  const me=myProfile();
+  log.push({who:me?me.name:'Someone',emoji:me?me.emoji:'🙂',color:me?me.color:'#ccc',act:desc,ts:Date.now()});
+  if(log.length>100)log=log.slice(log.length-100); // keep last 100
+  renderLog();
+}
+
+/* ---- who-are-you picker ---- */
+function buildEmojiColor(){
+  const ep=$('whoEmoji');ep.innerHTML='';EMOJI_CHOICES.forEach(e=>{const b=document.createElement('button');b.type='button';b.textContent=e;b.className=(e===whoEmojiSel?'sel':'');b.onclick=()=>{whoEmojiSel=e;buildEmojiColor();};ep.appendChild(b);});
+  const cp=$('whoColor');cp.innerHTML='';COLOR_CHOICES.forEach(c=>{const b=document.createElement('button');b.type='button';b.style.background=c;b.className=(c===whoColorSel?'sel':'');b.onclick=()=>{whoColorSel=c;buildEmojiColor();};cp.appendChild(b);});
+}
+function openWho(forEdit){
+  $('whoTitle').textContent=forEdit?'👋 Who\u2019s editing?':'👤 Your name tag';
+  showWhoMode('list');renderWhoList();$('whoOverlay').classList.add('show');
+}
+function showWhoMode(mode){
+  $('whoExisting').style.display=mode==='list'?'block':'none';
+  $('whoCreate').style.display=mode==='create'?'block':'none';
+  $('whoNewBtn').style.display=mode==='list'?'inline-block':'none';
+  $('whoRestoreBtn').style.display=mode==='list'?'inline-block':'none';
+  $('whoBackBtn').style.display=mode==='create'?'inline-block':'none';
+  $('whoSaveBtn').style.display=mode==='create'?'inline-block':'none';
+  $('whoRestoreShow').style.display='none';
+}
+function renderWhoList(){
+  const box=$('whoList');box.innerHTML='';
+  if(!profiles.length){box.innerHTML='<div class="pend-empty">No name tags yet — add yourself below.</div>';return;}
+  profiles.forEach(p=>{
+    const row=document.createElement('div');row.className='who-row';
+    row.innerHTML='<span class="who-av" style="background:'+p.color+'">'+p.emoji+'</span><span class="who-name">'+esc(p.name)+'</span>'+(p.pinHash?'<span class="who-lock">🔒</span>':'');
+    row.onclick=()=>selectProfile(p);box.appendChild(row);
+  });
+}
+function selectProfile(p){
+  if(p.pinHash){askPin(p.name,h=>{if(h===p.pinHash){finishWho(p.id);return true;}return false;});}
+  else finishWho(p.id);
+}
+function finishWho(id){
+  rememberMe(id);updateMeChip();$('whoOverlay').classList.remove('show');
+  const pend=pendingMutationDesc;pendingMutationDesc=null;
+  if(pend){runMutation(pend.desc,pend.fn);} else {commit();}
+}
+$('whoNewBtn').onclick=()=>{whoEmojiSel=EMOJI_CHOICES[Math.floor(Math.random()*EMOJI_CHOICES.length)];whoColorSel=COLOR_CHOICES[Math.floor(Math.random()*COLOR_CHOICES.length)];$('who_name').value='';$('who_pin').value='';buildEmojiColor();showWhoMode('create');};
+$('whoBackBtn').onclick=()=>showWhoMode('list');
+$('whoRestoreBtn').onclick=()=>{$('restore_input').value='';$('restoreStatus').textContent='';$('restoreOverlay').classList.add('show');};
+function whoSaveNew(){
+  const name=$('who_name').value.trim();if(!name){alert('Pick a name 🌸');return;}
+  const pin=$('who_pin').value.trim();
+  if(pin&&!/^\d{4}$/.test(pin)){alert('PIN must be exactly 4 digits, or left blank.');return;}
+  const prof={id:genId('u'),name,emoji:whoEmojiSel,color:whoColorSel,restoreCode:genRestoreCode()};
+  if(pin)prof.pinHash=pinHash(pin);
+  profiles.push(prof);rememberMe(prof.id);updateMeChip();
+  // reveal the restore code; next click finishes
+  $('whoRestoreShow').style.display='block';$('whoRestoreCode').textContent=prof.restoreCode;
+  $('whoSaveBtn').textContent='Done →';$('whoSaveBtn').onclick=whoFinishNew;
+}
+function whoFinishNew(){
+  $('whoSaveBtn').textContent='Save';$('whoSaveBtn').onclick=whoSaveNew;
+  $('whoOverlay').classList.remove('show');
+  const pend=pendingMutationDesc;pendingMutationDesc=null;
+  if(pend){runMutation(pend.desc,pend.fn);}else{commit();}
+}
+$('whoSaveBtn').onclick=whoSaveNew;
+
+/* ---- PIN prompt ---- */
+function askPin(name,check){
+  $('pinTitle').textContent='🔒 PIN for '+name;$('pin_input').value='';$('pinStatus').textContent='';
+  $('pinOverlay').classList.add('show');setTimeout(()=>$('pin_input').focus(),50);
+  pinResolver=check;
+}
+$('pinOkBtn').onclick=()=>{
+  const v=$('pin_input').value.trim();if(!/^\d{4}$/.test(v)){$('pinStatus').textContent='Enter 4 digits';$('pinStatus').style.color='var(--accent-ink)';return;}
+  const ok=pinResolver&&pinResolver(pinHash(v));
+  if(ok){$('pinOverlay').classList.remove('show');pinResolver=null;}
+  else{$('pinStatus').textContent='That PIN doesn\u2019t match — try again';$('pinStatus').style.color='var(--accent-ink)';$('pin_input').value='';}
+};
+$('pinCancelBtn').onclick=()=>{$('pinOverlay').classList.remove('show');pinResolver=null;};
+
+/* ---- restore code ---- */
+$('restoreOkBtn').onclick=()=>{
+  const code=$('restore_input').value.trim().toUpperCase();
+  const p=profiles.find(x=>(x.restoreCode||'').toUpperCase()===code);
+  if(!p){$('restoreStatus').textContent='No name tag matches that code.';$('restoreStatus').style.color='var(--accent-ink)';return;}
+  $('restoreOverlay').classList.remove('show');finishWho(p.id);
+};
+$('restoreCancelBtn').onclick=()=>$('restoreOverlay').classList.remove('show');
+
+/* ---- history panel ---- */
+function renderLog(){
+  const box=$('logScroll');if(!box)return;box.innerHTML='';
+  if(!log.length){box.innerHTML='<div class="log-empty">No changes logged yet. Edits will show up here with who made them.</div>';return;}
+  [...log].reverse().forEach(e=>{
+    const item=document.createElement('div');item.className='log-item';
+    item.innerHTML='<span class="li-av" style="background:'+(e.color||'#ccc')+'">'+(e.emoji||'🙂')+'</span>'+
+      '<div class="li-body"><span class="li-who">'+esc(e.who||'Someone')+'</span> <span class="li-act">'+esc(e.act||'made a change')+'</span><div class="li-time">'+logTime(e.ts)+'</div></div>';
+    box.appendChild(item);
+  });
+}
+function logTime(ts){if(!ts)return'';const d=new Date(ts);return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
+$('logToggle').onclick=()=>{renderLog();$('logPanel').classList.add('open');};
+$('logCloseBtn').onclick=()=>$('logPanel').classList.remove('open');
+
 
 /* ====== PENDING IMPORTS ====== */
 /* Give every pending item a STABLE id once, on the way in (load / refresh).
@@ -430,11 +661,13 @@ function findPendingRaw(pid){return pending.find(x=>(x.pid||'')===pid)||pending.
 function acceptPending(pid){
   const raw=findPendingRaw(pid);
   if(!raw)return;const p=normalizePending(raw);
-  slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
-  pending=pending.filter(x=>x!==raw);
-  renderPendList();updatePendingUI();commit();
+  withIdentity('accepted import “'+p.title+'”',()=>{
+    slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
+    pending=pending.filter(x=>x!==raw);
+  });
+  renderPendList();updatePendingUI();
 }
-function discardPending(pid){const raw=findPendingRaw(pid);if(!raw)return;pending=pending.filter(x=>x!==raw);renderPendList();updatePendingUI();commit();}
+function discardPending(pid){const raw=findPendingRaw(pid);if(!raw)return;const p=normalizePending(raw);withIdentity('discarded import “'+p.title+'”',()=>{pending=pending.filter(x=>x!==raw);});renderPendList();updatePendingUI();}
 function editThenAccept(pid){
   const raw=findPendingRaw(pid);if(!raw)return;const p=normalizePending(raw);
   pending=pending.filter(x=>x!==raw);updatePendingUI();
@@ -445,12 +678,12 @@ function editThenAccept(pid){
   $('s_loc').value=p.loc;$('s_resname').value=p.resname;$('s_resnum').value=p.resnum;$('s_notes').value=p.notes;
   if(p.lat!=null){pendingLatLng={lat:p.lat,lng:p.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}
 }
-$('pendAcceptAll').onclick=()=>{[...pending].forEach(raw=>{const p=normalizePending(raw);slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});});pending=[];renderPendList();updatePendingUI();commit();};
-$('pendDiscardAll').onclick=()=>{if(confirm('Discard all pending imports?')){pending=[];renderPendList();updatePendingUI();commit();}};
+$('pendAcceptAll').onclick=()=>{const n=pending.length;if(!n)return;withIdentity('accepted all '+n+' imports',()=>{[...pending].forEach(raw=>{const p=normalizePending(raw);slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});});pending=[];});renderPendList();updatePendingUI();};
+$('pendDiscardAll').onclick=()=>{const n=pending.length;if(n&&confirm('Discard all pending imports?')){withIdentity('discarded all '+n+' imports',()=>{pending=[];});renderPendList();updatePendingUI();}};
 $('pendRefreshBtn').onclick=async()=>{
   if(!sb||!tripId||!editToken)return;
   $('pendRefreshBtn').textContent='Checking…';
-  try{const row=await dbGet(tripId,editToken);if(row&&row.data){pending=ensurePids(row.data.pending);renderPendList();updatePendingUI();renderAll();}}
+  try{const row=await dbGet(tripId,editToken);if(row&&row.data){pending=ensurePids(row.data.pending);profiles=row.data.profiles||profiles;log=row.data.log||log;renderPendList();updatePendingUI();renderAll();renderLog();}}
   catch(e){console.error(e);}
   $('pendRefreshBtn').textContent='🔄 Check for new';
 };
@@ -517,6 +750,9 @@ function bootUI(){
   $('tripNameLbl').textContent=trip.name;
   $('tripDatesLbl').textContent=fmtDate(trip.start)+' – '+fmtDate(trip.end)+'  ·  '+trip.days.length+' days';
   renderGutter();renderColumns();renderDayToggle();if(!map)initMap();renderAll();updateShareUI();updatePendingUI();
+  loadRememberedMe();updateMeChip();
+  $('logToggle').style.display='block'; // history visible to editors and viewers
+  renderLog();
 }
 function renderGutter(){
   const g=$('gutter');g.innerHTML='';
@@ -607,14 +843,14 @@ function renderFlights(){
 }
 /* ---------- drag + resize ---------- */
 function attachDrag(el,sl){
-  let mode=null,sY=0,sX=0,oS=0,oE=0,moved=false,colRects=[];
-  const down=e=>{if(e.button!==undefined&&e.button!==0)return;mode=e.target.classList.contains('resize-h')?'rb':e.target.classList.contains('resize-t')?'rt':'move';sY=e.clientY;sX=e.clientX;oS=sl.startMin;oE=sl.endMin;moved=false;colRects=[...$('columns').children].map((c,i)=>({i,rect:c.querySelector('.grid-area').getBoundingClientRect()}));el.classList.add('dragging');el.setPointerCapture(e.pointerId);e.preventDefault();e.stopPropagation();};
+  let mode=null,sY=0,sX=0,oS=0,oE=0,moved=false,colRects=[],startDay=0;
+  const down=e=>{if(e.button!==undefined&&e.button!==0)return;mode=e.target.classList.contains('resize-h')?'rb':e.target.classList.contains('resize-t')?'rt':'move';sY=e.clientY;sX=e.clientX;oS=sl.startMin;oE=sl.endMin;startDay=sl.dayIndex;moved=false;colRects=[...$('columns').children].map((c,i)=>({i,rect:c.querySelector('.grid-area').getBoundingClientRect()}));el.classList.add('dragging');el.setPointerCapture(e.pointerId);e.preventDefault();e.stopPropagation();};
   const move=e=>{if(!mode)return;const dy=snap((e.clientY-sY)/PX_PER_HOUR*60);if(Math.abs(e.clientY-sY)>4||Math.abs(e.clientX-sX)>4)moved=true;
     if(mode==='move'){let dur=oE-oS,ns=Math.max(HS()*60,Math.min(HE()*60-dur,oS+dy));sl.startMin=ns;sl.endMin=ns+dur;const hit=colRects.find(c=>e.clientX>=c.rect.left&&e.clientX<=c.rect.right);if(hit&&hit.i!==sl.dayIndex){sl.dayIndex=hit.i;gridAreaOf(hit.i).appendChild(el);}}
     else if(mode==='rb'){sl.endMin=Math.max(sl.startMin+MIN_DUR,Math.min(HE()*60,oE+dy));}
     else{sl.startMin=Math.min(sl.endMin-MIN_DUR,Math.max(HS()*60,oS+dy));}
     positionSlot(el,sl);};
-  const up=e=>{if(!mode)return;el.classList.remove('dragging');const wm=mode;mode=null;try{el.releasePointerCapture(e.pointerId);}catch(_){}if(!moved&&wm==='move')openSlotModal(sl.id);else commit();};
+  const up=e=>{if(!mode)return;el.classList.remove('dragging');const wm=mode;mode=null;try{el.releasePointerCapture(e.pointerId);}catch(_){}if(!moved&&wm==='move')openSlotModal(sl.id);else{const moved2=(sl.startMin!==oS||sl.endMin!==oE||sl.dayIndex!==startDay);if(moved2)withIdentity('moved “'+sl.title+'”',()=>{});else commit();}};
   el.addEventListener('pointerdown',down);el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
 }
 /* ---------- MAP ---------- */
@@ -659,8 +895,8 @@ $('slotCancelBtn').onclick=closeSlotModal;
 function closeSlotModal(){$('slotOverlay').classList.remove('show');pickMode=false;$('pickBanner').style.display='none';if(tempMarker){tempMarker.remove();tempMarker=null;}}
 $('findLocBtn').onclick=()=>geocode($('s_loc').value.trim(),'locStatus');
 $('pickOnMapBtn').onclick=()=>startPick('slot');
-$('slotSaveBtn').onclick=()=>{const title=$('s_title').value.trim()||'Untitled';let sm=inputValToMins($('s_start').value||'12:00'),em=inputValToMins($('s_end').value||'13:00');if(em<=sm)em=sm+MIN_DUR;const data={dayIndex:parseInt($('s_day').value),startMin:sm,endMin:em,type:formType,title,loc:$('s_loc').value.trim(),resname:$('s_resname').value.trim(),resnum:$('s_resnum').value.trim(),notes:$('s_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};if(editingSlotId)Object.assign(slots.find(s=>s.id===editingSlotId),data);else slots.push({id:nextId++,...data});closeSlotModal();commit();};
-$('slotDeleteBtn').onclick=()=>{if(editingSlotId)slots=slots.filter(s=>s.id!==editingSlotId);closeSlotModal();commit();};
+$('slotSaveBtn').onclick=()=>{const title=$('s_title').value.trim()||'Untitled';let sm=inputValToMins($('s_start').value||'12:00'),em=inputValToMins($('s_end').value||'13:00');if(em<=sm)em=sm+MIN_DUR;const data={dayIndex:parseInt($('s_day').value),startMin:sm,endMin:em,type:formType,title,loc:$('s_loc').value.trim(),resname:$('s_resname').value.trim(),resnum:$('s_resnum').value.trim(),notes:$('s_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingSlotId;const eid=editingSlotId;closeSlotModal();withIdentity((wasEdit?'edited ':'added ')+'“'+title+'”',()=>{if(wasEdit)Object.assign(slots.find(s=>s.id===eid),data);else slots.push({id:nextId++,...data});});};
+$('slotDeleteBtn').onclick=()=>{const eid=editingSlotId;const t=eid?(slots.find(s=>s.id===eid)||{}).title:'';closeSlotModal();if(eid)withIdentity('deleted “'+(t||'item')+'”',()=>{slots=slots.filter(s=>s.id!==eid);});};
 
 /* ---------- FLIGHT MODAL ---------- */
 function openFlightModal(id){
@@ -677,10 +913,10 @@ $('flightSaveBtn').onclick=()=>{
   let depMin=inputValToMins($('fl_depTime').value||'10:00'),arrMin=inputValToMins($('fl_arrTime').value||'13:00');
   if(arrDay<depDay||(arrDay===depDay&&arrMin<=depMin)){arrDay=depDay;arrMin=Math.min(HE()*60,depMin+120);}
   const data={flightNo:$('fl_no').value.trim()||'Flight',from:$('fl_from').value.trim(),to:$('fl_to').value.trim(),depDay,arrDay,depMin,arrMin,bufferMin:Math.round((parseFloat($('fl_buffer').value)||0)*60),notes:$('fl_notes').value.trim()};
-  if(editingFlightId)Object.assign(flights.find(x=>x.id===editingFlightId),data);else flights.push({id:nextFlight++,...data});
-  $('flightOverlay').classList.remove('show');commit();
+  const wasEdit=!!editingFlightId,eid=editingFlightId;$('flightOverlay').classList.remove('show');
+  withIdentity((wasEdit?'edited ':'added ')+'flight '+data.flightNo,()=>{if(wasEdit)Object.assign(flights.find(x=>x.id===eid),data);else flights.push({id:nextFlight++,...data});});
 };
-$('flightDeleteBtn').onclick=()=>{if(editingFlightId)flights=flights.filter(x=>x.id!==editingFlightId);$('flightOverlay').classList.remove('show');commit();};
+$('flightDeleteBtn').onclick=()=>{const eid=editingFlightId;const fn=eid?(flights.find(x=>x.id===eid)||{}).flightNo:'';$('flightOverlay').classList.remove('show');if(eid)withIdentity('deleted flight '+(fn||''),()=>{flights=flights.filter(x=>x.id!==eid);});};
 
 /* ---------- HOTEL MODAL ---------- */
 function openHotelModal(id){
@@ -695,8 +931,8 @@ $('hotelCancelBtn').onclick=closeHotelModal;
 function closeHotelModal(){$('hotelOverlay').classList.remove('show');pickMode=false;$('pickBanner').style.display='none';if(tempMarker){tempMarker.remove();tempMarker=null;}}
 $('hFindLocBtn').onclick=()=>geocode($('h_loc').value.trim(),'hLocStatus');
 $('hPickBtn').onclick=()=>startPick('hotel');
-$('hotelSaveBtn').onclick=()=>{let ciDay=parseInt($('h_ciDay').value),coDay=parseInt($('h_coDay').value);if(coDay<ciDay)[ciDay,coDay]=[coDay,ciDay];const data={name:$('h_name').value.trim()||'Hotel',ciDay,coDay,ciMin:inputValToMins($('h_ciTime').value||'15:00'),coMin:inputValToMins($('h_coTime').value||'11:00'),loc:$('h_loc').value.trim(),resname:$('h_resname').value.trim(),resnum:$('h_resnum').value.trim(),notes:$('h_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};if(editingHotelId)Object.assign(stays.find(s=>s.id===editingHotelId),data);else stays.push({id:nextStay++,...data});closeHotelModal();commit();};
-$('hotelDeleteBtn').onclick=()=>{if(editingHotelId)stays=stays.filter(s=>s.id!==editingHotelId);closeHotelModal();commit();};
+$('hotelSaveBtn').onclick=()=>{let ciDay=parseInt($('h_ciDay').value),coDay=parseInt($('h_coDay').value);if(coDay<ciDay)[ciDay,coDay]=[coDay,ciDay];const data={name:$('h_name').value.trim()||'Hotel',ciDay,coDay,ciMin:inputValToMins($('h_ciTime').value||'15:00'),coMin:inputValToMins($('h_coTime').value||'11:00'),loc:$('h_loc').value.trim(),resname:$('h_resname').value.trim(),resnum:$('h_resnum').value.trim(),notes:$('h_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingHotelId,eid=editingHotelId;closeHotelModal();withIdentity((wasEdit?'edited ':'added ')+'hotel “'+data.name+'”',()=>{if(wasEdit)Object.assign(stays.find(s=>s.id===eid),data);else stays.push({id:nextStay++,...data});});};
+$('hotelDeleteBtn').onclick=()=>{const eid=editingHotelId;const nm=eid?(stays.find(s=>s.id===eid)||{}).name:'';closeHotelModal();if(eid)withIdentity('deleted hotel “'+(nm||'')+'”',()=>{stays=stays.filter(s=>s.id!==eid);});};
 
 /* ---------- EXPORT (themed) ---------- */
 function agendaCSS(){const t=THEMES[currentTheme]||THEMES.marshmallow;return `
@@ -740,7 +976,7 @@ $('exHtml').onclick=()=>{const doc='<!DOCTYPE html><html lang="en"><head><meta c
 $('exImg').onclick=async()=>{const t=THEMES[currentTheme]||THEMES.marshmallow;const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:520px;background:'+agendaBG()+';';const st=document.createElement('style');st.textContent=agendaCSS();host.appendChild(st);const c=document.createElement('div');c.innerHTML=agendaHTML();host.appendChild(c);document.body.appendChild(host);try{const canvas=await html2canvas(host,{scale:2,backgroundColor:t['--bg1'],useCORS:true});const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=slug()+'-wallpaper.png';document.body.appendChild(a);a.click();a.remove();}catch(e){alert('Could not render image. Try the locked web page instead.');}host.remove();$('exportOverlay').classList.remove('show');};
 
 /* ---------- backdrop-to-close ---------- */
-[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['pendingOverlay',()=>$('pendingOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
+[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['pendingOverlay',()=>$('pendingOverlay').classList.remove('show')],['whoOverlay',()=>$('whoOverlay').classList.remove('show')],['restoreOverlay',()=>$('restoreOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
 
 /* ---------- ROUTING + START ---------- */
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const m=h.match(/^trip\/([^?]+)\?t=(.+)$/);return m?{id:m[1],token:m[2]}:null;}
