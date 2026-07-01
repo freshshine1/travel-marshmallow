@@ -284,7 +284,7 @@
     <div class="loc-status" id="locStatus"></div>
     <div class="row2" style="margin-top:10px;"><label class="field">Reservation name<input id="s_resname" placeholder="optional" /></label><label class="field">Reservation #<input id="s_resnum" placeholder="optional" /></label></div>
     <label class="field">Notes<textarea id="s_notes" rows="2" placeholder="optional"></textarea></label>
-    <div class="modal-actions"><button class="soft danger tiny" id="slotDeleteBtn" style="display:none;">🗑 Delete</button><div class="spacer"></div>
+    <div class="modal-actions"><button class="soft danger tiny" id="slotDeleteBtn" style="display:none;">🗑 Delete</button><button class="soft ghost tiny" id="slotToHotelBtn" style="display:none;">🏨 Move to hotel</button><div class="spacer"></div>
       <button class="soft ghost tiny" id="slotCancelBtn">Cancel</button><button class="soft green" id="slotSaveBtn">Save</button></div>
   </div>
 </div>
@@ -798,9 +798,20 @@ function normalizePending(p){
   let sm=typeof p.startMin==='number'?p.startMin:(p.start?inputValToMins(p.start):12*60);
   let em=typeof p.endMin==='number'?p.endMin:(p.end?inputValToMins(p.end):sm+60);
   sm=clampMin(sm);em=clampMin(Math.max(sm+MIN_DUR,em));
+  // --- hotel detection (keyword failsafe + explicit type/kind) ---
+  const HOTEL_RE=/hotel|hostel|\binn\b|ryokan|motel|resort|guest\s?house|lodge|check[\s-]?in|check[\s-]?out|飯店|酒店|旅館|旅店|民宿|住宿|訂房|ホテル|宿泊|チェックイン/i;
+  const hay=[p.title,p.notes,p.resname,p.loc||p.location,p.source||p.from,p.type,p.kind,p.category].filter(Boolean).join(' ');
+  const isHotel=(typeId==='hotel')||((p.kind||'').toLowerCase()==='hotel')||HOTEL_RE.test(hay);
+  // check-out day (from explicit coDay or a checkoutDate the parser captured)
+  let coDayGuess=null;
+  if(typeof p.coDay==='number')coDayGuess=clampDay(p.coDay);
+  else if(p.checkoutDate){const t=new Date(p.checkoutDate+'T00:00');const idx=trip.days.findIndex(d=>d.toISOString().slice(0,10)===t.toISOString().slice(0,10));if(idx>=0)coDayGuess=clampDay(idx);}
+  let coMinGuess=(typeof p.coMin==='number')?p.coMin:(p.checkout?inputValToMins(p.checkout):null);
+  let ciMinGuess=(typeof p.ciMin==='number')?p.ciMin:(p.checkin?inputValToMins(p.checkin):(p.start?inputValToMins(p.start):15*60));
   return{pid:p.pid||('p'+Date.now()+Math.floor(Math.random()*1000)),type:typeId,title:p.title||'Imported item',dayIndex,startMin:sm,endMin:em,
     loc:p.loc||p.location||'',resname:p.resname||p.reservation_name||'',resnum:p.resnum||p.reservation_number||'',notes:p.notes||'',
-    lat:p.lat??null,lng:p.lng??null,source:p.source||p.from||'email'};
+    lat:p.lat??null,lng:p.lng??null,source:p.source||p.from||'email',
+    isHotel,coDayGuess,coMinGuess,ciMinGuess};
 }
 function openPendingTray(){renderPendList();$('pendSimWrap').style.display='block';$('pendingOverlay').classList.add('show');}
 $('pendingBtn').onclick=openPendingTray;
@@ -816,6 +827,7 @@ function renderPendList(){
       '<div class="pc-meta">Day '+(p.dayIndex+1)+' · '+minsToTimeStr(p.startMin)+'–'+minsToTimeStr(p.endMin)+(p.loc?' · 📍 '+esc(p.loc):'')+'</div>'+
       (resStr(p)?'<div class="pc-meta">'+esc(resStr(p))+'</div>':'')+
       '<div class="pc-src">from: '+esc(p.source)+'</div>'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:.8rem;font-weight:700;color:#8a5a9a;margin:6px 0 2px;cursor:pointer;"><input type="checkbox" data-hotel="'+p.pid+'"'+(p.isHotel?' checked':'')+'> 🏨 Treat as hotel (pin to top)</label>'+
       '<div class="pc-actions"><button class="soft green tiny" data-ok="'+p.pid+'">✓ Accept</button><button class="soft ghost tiny" data-edit="'+p.pid+'">✎ Edit first</button><button class="soft danger tiny" data-no="'+p.pid+'">✗ Discard</button></div>';
     box.appendChild(card);
   });
@@ -824,11 +836,24 @@ function renderPendList(){
   box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editThenAccept(b.dataset.edit));
 }
 function findPendingRaw(pid){return pending.find(x=>(x.pid||'')===pid)||pending.find(x=>normalizePending(x).pid===pid);}
+/* build a real hotel STAY from a pending item (auto 1-night when check-out unknown) */
+function stayFromPending(p){
+  const ciDay=clampDay(p.dayIndex);
+  let coDay=(p.coDayGuess!=null)?p.coDayGuess:clampDay(ciDay+1);
+  if(coDay<=ciDay)coDay=clampDay(ciDay+1);
+  const ciMin=(typeof p.ciMinGuess==='number')?p.ciMinGuess:15*60;
+  const coMin=(p.coMinGuess!=null)?p.coMinGuess:11*60;
+  const name=(p.title||'Hotel').replace(/\s*[—–-]?\s*(check[\s-]?in|check[\s-]?out|入住|退房|チェックイン).*$/i,'').trim()||(p.title||'Hotel');
+  stays.push({id:nextStay++,name,ciDay,coDay,ciMin,coMin,loc:p.loc||'',resname:p.resname||'',resnum:p.resnum||'',notes:p.notes||'',lat:p.lat??null,lng:p.lng??null});
+}
 function acceptPending(pid){
   const raw=findPendingRaw(pid);
   if(!raw)return;const p=normalizePending(raw);
-  withIdentity('accepted import “'+p.title+'”',()=>{
-    slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
+  const cb=document.querySelector('[data-hotel="'+pid+'"]');
+  const asHotel=cb?cb.checked:!!p.isHotel;
+  withIdentity('accepted import “'+p.title+'”'+(asHotel?' as hotel':''),()=>{
+    if(asHotel)stayFromPending(p);
+    else slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});
     pending=pending.filter(x=>x!==raw);
   });
   renderPendList();updatePendingUI();
@@ -844,7 +869,7 @@ function editThenAccept(pid){
   $('s_loc').value=p.loc;$('s_resname').value=p.resname;$('s_resnum').value=p.resnum;$('s_notes').value=p.notes;
   if(p.lat!=null){pendingLatLng={lat:p.lat,lng:p.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}
 }
-$('pendAcceptAll').onclick=()=>{const n=pending.length;if(!n)return;withIdentity('accepted all '+n+' imports',()=>{[...pending].forEach(raw=>{const p=normalizePending(raw);slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});});pending=[];});renderPendList();updatePendingUI();};
+$('pendAcceptAll').onclick=()=>{const n=pending.length;if(!n)return;withIdentity('accepted all '+n+' imports',()=>{[...pending].forEach(raw=>{const p=normalizePending(raw);const cb=document.querySelector('[data-hotel="'+p.pid+'"]');const asHotel=cb?cb.checked:!!p.isHotel;if(asHotel)stayFromPending(p);else slots.push({id:nextId++,dayIndex:p.dayIndex,startMin:p.startMin,endMin:p.endMin,type:p.type,title:p.title,loc:p.loc,resname:p.resname,resnum:p.resnum,notes:p.notes,lat:p.lat,lng:p.lng});});pending=[];});renderPendList();updatePendingUI();};
 $('pendDiscardAll').onclick=()=>{const n=pending.length;if(n&&confirm('Discard all pending imports?')){withIdentity('discarded all '+n+' imports',()=>{pending=[];});renderPendList();updatePendingUI();}};
 $('pendRefreshBtn').onclick=async()=>{
   if(!sb||!tripId||!editToken)return;
@@ -948,7 +973,28 @@ function renderDayToggle(){
   const mk=(l,v)=>{const b=document.createElement('button');b.className='chip'+(activeDayFilter===v?' active':'');b.textContent=l;b.onclick=()=>{activeDayFilter=v;renderDayToggle();refreshMarkers();};dt.appendChild(b);};
   trip.days.forEach((d,i)=>mk('Day '+(i+1),i));mk('All','all');
 }
-function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();renderPendingSlots();refreshMarkers();}
+/* ---- hotel coverage: overlapping stays + un-booked nights ---- */
+function nightsLabel(lo,hi){return (hi-lo===1)?('night '+(lo+1)):('nights '+(lo+1)+'–'+hi);}
+function computeStayIssues(){
+  const issues=[];if(!trip||!stays.length)return issues;
+  const S=[...stays].sort((a,b)=>a.ciDay-b.ciDay);
+  for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++){
+    const a=S[i],b=S[j];const lo=Math.max(a.ciDay,b.ciDay),hi=Math.min(a.coDay,b.coDay);
+    if(lo<hi)issues.push('“'+a.name+'” & “'+b.name+'” overlap on '+nightsLabel(lo,hi));
+  }
+  const nNights=trip.days.length-1,gaps=[];
+  for(let d=0;d<nNights;d++){if(!stays.some(s=>s.ciDay<=d&&d<s.coDay))gaps.push(d);}
+  if(gaps.length)issues.push('no hotel for '+gaps.map(d=>'night '+(d+1)).join(', '));
+  return issues;
+}
+function renderStayNotice(){
+  let el=$('stayNotice');
+  if(!el){el=document.createElement('div');el.id='stayNotice';el.style.cssText='margin:8px 12px;padding:10px 12px;border-radius:14px;font-size:.82rem;font-weight:600;line-height:1.45;background:#fff4d6;color:#8a6d1f;border:1px solid #f0d98a;display:none;';const stage=document.getElementById('stage');if(stage&&stage.parentNode)stage.parentNode.insertBefore(el,stage);else document.body.insertBefore(el,document.body.firstChild);}
+  const issues=computeStayIssues();
+  if(!issues.length){el.style.display='none';return;}
+  el.innerHTML='🏨 <b>Hotel check:</b> '+issues.map(esc).join(' · ');el.style.display='block';
+}
+function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();renderPendingSlots();renderStayNotice();refreshMarkers();}
 function overlaps(a,b){return a.dayIndex===b.dayIndex&&a.startMin<b.endMin&&b.startMin<a.endMin;}
 /* a conflict counts only if BOTH cards aren't marked intentional */
 function conflictPartners(sl){return slots.filter(o=>o.id!==sl.id&&overlaps(sl,o)&&!sl.allowOverlap&&!o.allowOverlap);}
@@ -1114,8 +1160,8 @@ function buildTypePick(){const tp=$('typePick');tp.innerHTML='';TYPES.filter(t=>
 function openSlotModal(id){
   if(!canEdit)return;
   editingSlotId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('s_day'));
-  if(id){const sl=slots.find(s=>s.id===id);$('slotModalTitle').textContent='🍡 Edit';$('s_title').value=sl.title;formType=sl.type;$('s_day').value=sl.dayIndex;$('s_start').value=minsToInputVal(sl.startMin);$('s_end').value=minsToInputVal(sl.endMin);$('s_loc').value=sl.loc||'';$('s_resname').value=sl.resname||'';$('s_resnum').value=sl.resnum||'';$('s_notes').value=sl.notes||'';if(sl.lat!=null){pendingLatLng={lat:sl.lat,lng:sl.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}else $('locStatus').textContent='';$('slotDeleteBtn').style.display='inline-block';}
-  else{formType='meal';$('slotModalTitle').textContent='🍡 Add to trip';$('s_title').value='';$('s_day').value=0;$('s_start').value='12:00';$('s_end').value='13:00';$('s_loc').value='';$('s_resname').value='';$('s_resnum').value='';$('s_notes').value='';$('locStatus').textContent='';$('slotDeleteBtn').style.display='none';}
+  if(id){const sl=slots.find(s=>s.id===id);$('slotModalTitle').textContent='🍡 Edit';$('s_title').value=sl.title;formType=sl.type;$('s_day').value=sl.dayIndex;$('s_start').value=minsToInputVal(sl.startMin);$('s_end').value=minsToInputVal(sl.endMin);$('s_loc').value=sl.loc||'';$('s_resname').value=sl.resname||'';$('s_resnum').value=sl.resnum||'';$('s_notes').value=sl.notes||'';if(sl.lat!=null){pendingLatLng={lat:sl.lat,lng:sl.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}else $('locStatus').textContent='';$('slotDeleteBtn').style.display='inline-block';$('slotToHotelBtn').style.display='inline-block';}
+  else{formType='meal';$('slotModalTitle').textContent='🍡 Add to trip';$('s_title').value='';$('s_day').value=0;$('s_start').value='12:00';$('s_end').value='13:00';$('s_loc').value='';$('s_resname').value='';$('s_resnum').value='';$('s_notes').value='';$('locStatus').textContent='';$('slotDeleteBtn').style.display='none';$('slotToHotelBtn').style.display='none';}
   buildTypePick();$('slotOverlay').classList.add('show');
 }
 $('addSlotBtn').onclick=()=>openSlotModal(null);
@@ -1151,6 +1197,15 @@ $('findLocBtn').onclick=()=>geocode($('s_loc').value.trim(),'locStatus');
 $('pickOnMapBtn').onclick=()=>startPick('slot');
 $('slotSaveBtn').onclick=()=>{const title=$('s_title').value.trim()||'Untitled';let sm=inputValToMins($('s_start').value||'12:00'),em=inputValToMins($('s_end').value||'13:00');if(em<=sm)em=sm+MIN_DUR;const data={dayIndex:parseInt($('s_day').value),startMin:sm,endMin:em,type:formType,title,loc:$('s_loc').value.trim(),resname:$('s_resname').value.trim(),resnum:$('s_resnum').value.trim(),notes:$('s_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingSlotId;const eid=editingSlotId;closeSlotModal();withIdentity((wasEdit?'edited ':'added ')+'“'+title+'”',()=>{if(wasEdit)Object.assign(slots.find(s=>s.id===eid),data);else slots.push({id:nextId++,...data});});};
 $('slotDeleteBtn').onclick=()=>{const eid=editingSlotId;const t=eid?(slots.find(s=>s.id===eid)||{}).title:'';closeSlotModal();if(eid)withIdentity('deleted “'+(t||'item')+'”',()=>{slots=slots.filter(s=>s.id!==eid);});};
+$('slotToHotelBtn').onclick=()=>{
+  const eid=editingSlotId;if(!eid)return;const sl=slots.find(s=>s.id===eid);if(!sl)return;
+  const ciDay=clampDay(sl.dayIndex),coDay=clampDay(ciDay+1);
+  const base={name:sl.title||'Hotel',ciDay,coDay,ciMin:sl.startMin,coMin:11*60,loc:sl.loc||'',resname:sl.resname||'',resnum:sl.resnum||'',notes:sl.notes||'',lat:sl.lat??null,lng:sl.lng??null};
+  closeSlotModal();
+  const identified=(myProfileId&&myProfile());let newId=null;
+  withIdentity('moved “'+base.name+'” to hotel section',()=>{newId=nextStay++;stays.push({id:newId,...base});slots=slots.filter(s=>s.id!==eid);});
+  if(identified&&newId!=null)openHotelModal(newId); // confirm/adjust check-out
+};
 
 /* ---------- FLIGHT MODAL ---------- */
 function openFlightModal(id){
@@ -1176,7 +1231,7 @@ $('flightDeleteBtn').onclick=()=>{const eid=editingFlightId;const fn=eid?(flight
 function openHotelModal(id){
   if(!canEdit)return;
   editingHotelId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('h_ciDay'));fillDaySelect($('h_coDay'));
-  if(id){const st=stays.find(s=>s.id===id);$('hotelModalTitle').textContent='🏨 Edit hotel';$('h_name').value=st.name;$('h_ciDay').value=st.ciDay;$('h_coDay').value=st.coDay;$('h_ciTime').value=minsToInputVal(st.ciMin);$('h_coTime').value=minsToInputVal(st.coMin);$('h_loc').value=st.loc||'';$('h_resname').value=st.resname||'';$('h_resnum').value=st.resnum||'';$('h_notes').value=st.notes||'';if(st.lat!=null){pendingLatLng={lat:st.lat,lng:st.lng};$('hLocStatus').textContent='✓ Location set';$('hLocStatus').style.color='var(--mint-ink)';}else $('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='inline-block';}
+  if(id){const st=stays.find(s=>s.id===id);if(!st){return;}$('hotelModalTitle').textContent='🏨 Edit hotel';$('h_name').value=st.name;$('h_ciDay').value=st.ciDay;$('h_coDay').value=st.coDay;$('h_ciTime').value=minsToInputVal(st.ciMin);$('h_coTime').value=minsToInputVal(st.coMin);$('h_loc').value=st.loc||'';$('h_resname').value=st.resname||'';$('h_resnum').value=st.resnum||'';$('h_notes').value=st.notes||'';if(st.lat!=null){pendingLatLng={lat:st.lat,lng:st.lng};$('hLocStatus').textContent='✓ Location set';$('hLocStatus').style.color='var(--mint-ink)';}else $('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='inline-block';}
   else{$('hotelModalTitle').textContent='🏨 Add hotel';$('h_name').value='';$('h_ciDay').value=0;$('h_coDay').value=Math.min(1,trip.days.length-1);$('h_ciTime').value='15:00';$('h_coTime').value='11:00';$('h_loc').value='';$('h_resname').value='';$('h_resnum').value='';$('h_notes').value='';$('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='none';}
   $('hotelOverlay').classList.add('show');
 }
