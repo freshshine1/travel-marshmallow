@@ -1135,6 +1135,7 @@ function initMap(){
   markerLayer=L.layerGroup().addTo(map);
   map.on('click',e=>{if(!pickMode)return;pendingLatLng={lat:e.latlng.lat,lng:e.latlng.lng};if(tempMarker)tempMarker.remove();tempMarker=L.marker(e.latlng).addTo(map);endPick(true);});
   $('pickBanner').onclick=()=>endPick(false);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pickMode)endPick(false);});
 }
 function pinIcon(c){return L.divIcon({className:'',html:'<div class="pin" style="background:'+c+'"></div>',iconSize:[22,22],iconAnchor:[11,20],popupAnchor:[0,-18]});}
 function refreshMarkers(){
@@ -1143,7 +1144,8 @@ function refreshMarkers(){
   stays.forEach(st=>{if(st.lat==null)return;if(activeDayFilter!=='all'&&!(activeDayFilter>=st.ciDay&&activeDayFilter<=st.coDay))return;const m=L.marker([st.lat,st.lng],{icon:pinIcon('#8fe0b4')});const g=gmaps(st.lat,st.lng);m.bindPopup('<b>🏨 '+esc(st.name)+'</b><br><span style="color:#888">Day '+(st.ciDay+1)+'–'+(st.coDay+1)+'</span><br>'+(st.loc?esc(st.loc)+'<br>':'')+'<a href="'+g+'" target="_blank" rel="noopener" style="color:#3f9c6f;font-weight:700;">↗ Open in Google Maps</a>');markerLayer.addLayer(m);pts.push([st.lat,st.lng]);});
   if(pts.length===1)map.setView(pts[0],13);else if(pts.length>1)map.fitBounds(pts,{padding:[40,40],maxZoom:14});
 }
-function startPick(target){pickMode=true;pickTarget=target;$('pickBanner').style.display='block';$('map').style.cursor='crosshair';const ov=target==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='0';$(ov).style.pointerEvents='none';$('map').scrollIntoView({behavior:'smooth',block:'center'});}
+function startPick(target){if(document.body.classList.contains('map-collapsed'))collapseMap(false);if(map)setTimeout(()=>map.invalidateSize(),80);pickMode=true;pickTarget=target;$('pickBanner').style.display='block';$('map').style.cursor='crosshair';const ov=target==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='0';$(ov).style.pointerEvents='none';$('map').scrollIntoView({behavior:'smooth',block:'center'});}
+function resetPickUI(){pickMode=false;pickTarget=null;$('pickBanner').style.display='none';$('map').style.cursor='';['slotOverlay','hotelOverlay'].forEach(o=>{$(o).style.opacity='';$(o).style.pointerEvents='';});}
 function endPick(ok){pickMode=false;$('pickBanner').style.display='none';$('map').style.cursor='';const ov=pickTarget==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='1';$(ov).style.pointerEvents='auto';const st=pickTarget==='hotel'?'hLocStatus':'locStatus';if(ok){$(st).textContent='✓ Location set';$(st).style.color='var(--mint-ink)';}pickTarget=null;}
 async function geocode(q,statusId){
   if(!q){$(statusId).textContent='Type a location name first';$(statusId).style.color='var(--accent-ink)';return;}
@@ -1162,7 +1164,7 @@ function openSlotModal(id){
   editingSlotId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('s_day'));
   if(id){const sl=slots.find(s=>s.id===id);$('slotModalTitle').textContent='🍡 Edit';$('s_title').value=sl.title;formType=sl.type;$('s_day').value=sl.dayIndex;$('s_start').value=minsToInputVal(sl.startMin);$('s_end').value=minsToInputVal(sl.endMin);$('s_loc').value=sl.loc||'';$('s_resname').value=sl.resname||'';$('s_resnum').value=sl.resnum||'';$('s_notes').value=sl.notes||'';if(sl.lat!=null){pendingLatLng={lat:sl.lat,lng:sl.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}else $('locStatus').textContent='';$('slotDeleteBtn').style.display='inline-block';$('slotToHotelBtn').style.display='inline-block';}
   else{formType='meal';$('slotModalTitle').textContent='🍡 Add to trip';$('s_title').value='';$('s_day').value=0;$('s_start').value='12:00';$('s_end').value='13:00';$('s_loc').value='';$('s_resname').value='';$('s_resnum').value='';$('s_notes').value='';$('locStatus').textContent='';$('slotDeleteBtn').style.display='none';$('slotToHotelBtn').style.display='none';}
-  buildTypePick();$('slotOverlay').classList.add('show');
+  buildTypePick();resetPickUI();$('slotOverlay').classList.add('show');
 }
 $('addSlotBtn').onclick=()=>openSlotModal(null);
 $('fabAdd').onclick=()=>openSlotModal(null);
@@ -1192,7 +1194,7 @@ function restoreLayoutPrefs(){
 }
 $('editTripBtn').onclick=()=>openTripModal(true);
 $('slotCancelBtn').onclick=closeSlotModal;
-function closeSlotModal(){$('slotOverlay').classList.remove('show');pickMode=false;$('pickBanner').style.display='none';if(tempMarker){tempMarker.remove();tempMarker=null;}}
+function closeSlotModal(){$('slotOverlay').classList.remove('show');resetPickUI();if(tempMarker){tempMarker.remove();tempMarker=null;}}
 $('findLocBtn').onclick=()=>geocode($('s_loc').value.trim(),'locStatus');
 $('pickOnMapBtn').onclick=()=>startPick('slot');
 $('slotSaveBtn').onclick=()=>{const title=$('s_title').value.trim()||'Untitled';let sm=inputValToMins($('s_start').value||'12:00'),em=inputValToMins($('s_end').value||'13:00');if(em<=sm)em=sm+MIN_DUR;const data={dayIndex:parseInt($('s_day').value),startMin:sm,endMin:em,type:formType,title,loc:$('s_loc').value.trim(),resname:$('s_resname').value.trim(),resnum:$('s_resnum').value.trim(),notes:$('s_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingSlotId;const eid=editingSlotId;closeSlotModal();withIdentity((wasEdit?'edited ':'added ')+'“'+title+'”',()=>{if(wasEdit)Object.assign(slots.find(s=>s.id===eid),data);else slots.push({id:nextId++,...data});});};
@@ -1233,11 +1235,11 @@ function openHotelModal(id){
   editingHotelId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('h_ciDay'));fillDaySelect($('h_coDay'));
   if(id){const st=stays.find(s=>s.id===id);if(!st){return;}$('hotelModalTitle').textContent='🏨 Edit hotel';$('h_name').value=st.name;$('h_ciDay').value=st.ciDay;$('h_coDay').value=st.coDay;$('h_ciTime').value=minsToInputVal(st.ciMin);$('h_coTime').value=minsToInputVal(st.coMin);$('h_loc').value=st.loc||'';$('h_resname').value=st.resname||'';$('h_resnum').value=st.resnum||'';$('h_notes').value=st.notes||'';if(st.lat!=null){pendingLatLng={lat:st.lat,lng:st.lng};$('hLocStatus').textContent='✓ Location set';$('hLocStatus').style.color='var(--mint-ink)';}else $('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='inline-block';}
   else{$('hotelModalTitle').textContent='🏨 Add hotel';$('h_name').value='';$('h_ciDay').value=0;$('h_coDay').value=Math.min(1,trip.days.length-1);$('h_ciTime').value='15:00';$('h_coTime').value='11:00';$('h_loc').value='';$('h_resname').value='';$('h_resnum').value='';$('h_notes').value='';$('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='none';}
-  $('hotelOverlay').classList.add('show');
+  resetPickUI();$('hotelOverlay').classList.add('show');
 }
 $('addHotelBtn').onclick=()=>openHotelModal(null);
 $('hotelCancelBtn').onclick=closeHotelModal;
-function closeHotelModal(){$('hotelOverlay').classList.remove('show');pickMode=false;$('pickBanner').style.display='none';if(tempMarker){tempMarker.remove();tempMarker=null;}}
+function closeHotelModal(){$('hotelOverlay').classList.remove('show');resetPickUI();if(tempMarker){tempMarker.remove();tempMarker=null;}}
 $('hFindLocBtn').onclick=()=>geocode($('h_loc').value.trim(),'hLocStatus');
 $('hPickBtn').onclick=()=>startPick('hotel');
 $('hotelSaveBtn').onclick=()=>{let ciDay=parseInt($('h_ciDay').value),coDay=parseInt($('h_coDay').value);if(coDay<ciDay)[ciDay,coDay]=[coDay,ciDay];const data={name:$('h_name').value.trim()||'Hotel',ciDay,coDay,ciMin:inputValToMins($('h_ciTime').value||'15:00'),coMin:inputValToMins($('h_coTime').value||'11:00'),loc:$('h_loc').value.trim(),resname:$('h_resname').value.trim(),resnum:$('h_resnum').value.trim(),notes:$('h_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingHotelId,eid=editingHotelId;closeHotelModal();withIdentity((wasEdit?'edited ':'added ')+'hotel “'+data.name+'”',()=>{if(wasEdit)Object.assign(stays.find(s=>s.id===eid),data);else stays.push({id:nextStay++,...data});});};
