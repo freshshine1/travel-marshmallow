@@ -92,6 +92,9 @@
   .hd-transit{background:linear-gradient(160deg,var(--blue),#e8f4ff);color:var(--blue-ink);}
   .flight-buffer.tr{background:repeating-linear-gradient(135deg,rgba(150,200,255,.30),rgba(150,200,255,.30) 8px,rgba(150,200,255,.12) 8px,rgba(150,200,255,.12) 16px);border-color:rgba(80,140,210,.45);}
   .flight-buffer.tr span{color:var(--blue-ink);}
+  .loc-results{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+  .loc-results button{border:1px solid rgba(150,140,170,.3);background:rgba(255,255,255,.7);border-radius:10px;padding:5px 8px;font:inherit;font-size:.74rem;text-align:left;cursor:pointer;color:var(--ink);}
+  .loc-results button.sel{border-color:var(--mint-ink);background:var(--mint);}
   .grid-area{position:relative;} .hour-line{position:absolute;left:0;right:0;border-top:1px solid rgba(150,140,170,.14);}
   .slot{position:absolute;left:6px;right:6px;border-radius:16px;padding:7px 9px;overflow:hidden;cursor:grab;box-shadow:0 5px 12px rgba(120,110,150,.22);border:1px solid rgba(255,255,255,.7);user-select:none;touch-action:none;}
   .slot:active{cursor:grabbing;} .slot.dragging{box-shadow:0 14px 28px rgba(120,110,150,.4);z-index:50;opacity:.96;}
@@ -285,7 +288,7 @@
       <label class="field">Time<div class="row2"><input id="s_start" type="time" /><input id="s_end" type="time" /></div></label></div>
     <label class="field">Location name<input id="s_loc" placeholder="e.g. Ichiran Shibuya, Tokyo" /></label>
     <div class="row2"><button class="soft ghost tiny" id="findLocBtn" type="button">🔍 Find location</button><button class="soft ghost tiny" id="pickOnMapBtn" type="button">📍 Pick manually</button></div>
-    <div class="loc-status" id="locStatus"></div>
+    <div class="loc-status" id="locStatus"></div><div class="loc-results" id="locResults"></div>
     <div class="row2" style="margin-top:10px;"><label class="field">Reservation name<input id="s_resname" placeholder="optional" /></label><label class="field">Reservation #<input id="s_resnum" placeholder="optional" /></label></div>
     <label class="field">Notes<textarea id="s_notes" rows="2" placeholder="optional"></textarea></label>
     <div class="modal-actions"><button class="soft danger tiny" id="slotDeleteBtn" style="display:none;">🗑 Delete</button><button class="soft ghost tiny" id="slotToHotelBtn" style="display:none;">🏨 Move to hotel</button><div class="spacer"></div>
@@ -334,7 +337,7 @@
     <p class="hint">Check-in & check-out marshmallows are placed automatically. Hotels span days and don't trigger conflicts.</p>
     <label class="field">Location name<input id="h_loc" placeholder="address or area" /></label>
     <div class="row2"><button class="soft ghost tiny" id="hFindLocBtn" type="button">🔍 Find location</button><button class="soft ghost tiny" id="hPickBtn" type="button">📍 Pick manually</button></div>
-    <div class="loc-status" id="hLocStatus"></div>
+    <div class="loc-status" id="hLocStatus"></div><div class="loc-results" id="hLocResults"></div>
     <div class="row2" style="margin-top:10px;"><label class="field">Reservation name<input id="h_resname" placeholder="optional" /></label><label class="field">Reservation #<input id="h_resnum" placeholder="optional" /></label></div>
     <label class="field">Notes<textarea id="h_notes" rows="2" placeholder="optional"></textarea></label>
     <div class="modal-actions"><button class="soft danger tiny" id="hotelDeleteBtn" style="display:none;">🗑 Delete</button><div class="spacer"></div>
@@ -543,7 +546,7 @@ function emojiOf(s){return s.transport?trMode(s.mode).e:typeOf(s.type).emoji;}
 function resOf(s){if(!s.transport)return resStr(s);return[s.resnum?('🎫 #'+s.resnum):'',s.seat?('💺 '+s.seat):''].filter(Boolean).join('  ');}
 function gmaps(lat,lng,name){if(lat!=null)return'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;if(name)return'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name);return null;}
 
-$('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}if(map)setTimeout(()=>map.invalidateSize(),50);};
+$('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}setTimeout(mapResize,50);};
 
 /* ====== PERSISTENCE ====== */
 function serialize(){return{v:5,name:trip.name,start:trip.start.toISOString(),end:trip.end.toISOString(),hourStart:trip.hourStart,hourEnd:trip.hourEnd,theme:trip.theme||currentTheme,slots,stays,flights,pending,profiles,log,nextId,nextStay,nextFlight};}
@@ -967,7 +970,7 @@ function bootUI(){
   $('viewPill').style.display=canEdit?'none':'inline-block';
   $('tripNameLbl').textContent=trip.name;
   $('tripDatesLbl').textContent=fmtDate(trip.start)+' – '+fmtDate(trip.end)+'  ·  '+trip.days.length+' days';
-  renderGutter();renderColumns();renderDayToggle();if(!map)initMap();renderAll();updateShareUI();updatePendingUI();
+  renderGutter();renderColumns();renderDayToggle();initMap();renderAll();updateShareUI();updatePendingUI();
   loadRememberedMe();updateMeChip();updateUndoBtn();
   $('logToggle').style.display='block'; // history visible to editors and viewers
   renderLog();
@@ -1163,32 +1166,120 @@ function attachDrag(el,sl){
   const up=e=>{if(!mode)return;el.classList.remove('dragging');const wm=mode;mode=null;try{el.releasePointerCapture(e.pointerId);}catch(_){}if(!moved&&wm==='move')openSlotModal(sl.id);else{const moved2=(sl.startMin!==oS||sl.endMin!==oE||sl.dayIndex!==startDay);if(moved2)withIdentity('moved “'+sl.title+'”',()=>{});else commit();}};
   el.addEventListener('pointerdown',down);el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
 }
-/* ---------- MAP ---------- */
-function initMap(){
-  map=L.map('map',{zoomControl:true}).setView([35.68,139.76],4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-  markerLayer=L.layerGroup().addTo(map);
-  map.on('click',e=>{if(!pickMode)return;pendingLatLng={lat:e.latlng.lat,lng:e.latlng.lng};if(tempMarker)tempMarker.remove();tempMarker=L.marker(e.latlng).addTo(map);endPick(true);});
+/* ---------- MAP (Google Maps when the key works, otherwise Leaflet/OpenStreetMap) ---------- */
+/* Browser key: restricted in Google Cloud to this site's URL and to Maps JavaScript + Places only. */
+const GMAPS_KEY='AIzaSyA8TpaBuHhi1M6c6yyU_VxHpdVijC6wrEc';
+let MB=null,gPlaceLib=null,gInfo=null,mapInitStarted=false;
+function mapResize(){if(MB)MB.resize();}
+function setTemp(lat,lng){if(MB)MB.temp(lat,lng);}
+function clearTemp(){if(MB)MB.untemp();['locResults','hLocResults'].forEach(id=>{const e=$(id);if(e)e.innerHTML='';});}
+const LF={
+  init(){
+    const m=L.map('map',{zoomControl:true}).setView([35.68,139.76],4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(m);
+    this.map=m;this.layer=L.layerGroup().addTo(m);this.tmp=null;
+    m.on('click',e=>onMapPick(e.latlng.lat,e.latlng.lng,''));
+  },
+  clear(){this.layer.clearLayers();},
+  add(lat,lng,color,html){
+    const icon=L.divIcon({className:'',html:'<div class="pin" style="background:'+color+'"></div>',iconSize:[22,22],iconAnchor:[11,20],popupAnchor:[0,-18]});
+    L.marker([lat,lng],{icon}).bindPopup(html).addTo(this.layer);
+  },
+  fit(pts){if(pts.length===1)this.map.setView(pts[0],13);else if(pts.length>1)this.map.fitBounds(pts,{padding:[40,40],maxZoom:14});},
+  view(lat,lng,z){this.map.setView([lat,lng],z);},
+  temp(lat,lng){this.untemp();this.tmp=L.marker([lat,lng]).addTo(this.map);},
+  untemp(){if(this.tmp){this.tmp.remove();this.tmp=null;}},
+  resize(){this.map.invalidateSize();},
+  cursor(c){$('map').style.cursor=c||'';}
+};
+const GM={
+  init(){
+    const m=new google.maps.Map($('map'),{center:{lat:35.68,lng:139.76},zoom:4,mapTypeControl:false,streetViewControl:false,fullscreenControl:false});
+    this.map=m;this.markers=[];this.tmp=null;gInfo=new google.maps.InfoWindow();
+    m.addListener('click',async e=>{
+      if(!pickMode)return;
+      if(e.placeId&&e.stop)e.stop(); // don't open Google's own popup while picking
+      const lat=e.latLng.lat(),lng=e.latLng.lng();let name='';
+      if(e.placeId&&gPlaceLib){try{const pl=new gPlaceLib.Place({id:e.placeId});await pl.fetchFields({fields:['displayName']});name=pl.displayName||'';}catch(_){}}
+      onMapPick(lat,lng,name);
+    });
+  },
+  clear(){this.markers.forEach(k=>k.setMap(null));this.markers=[];if(gInfo)gInfo.close();},
+  add(lat,lng,color,html){
+    const mk=new google.maps.Marker({position:{lat,lng},map:this.map,icon:{path:'M0,0 C-2,-10 -10,-14 -10,-22 A10,10 0 1 1 10,-22 C10,-14 2,-10 0,0 Z',fillColor:color,fillOpacity:1,strokeColor:'#ffffff',strokeWeight:2,scale:1}});
+    mk.addListener('click',()=>{gInfo.setContent('<div style="font-family:Quicksand,sans-serif;font-size:13px;line-height:1.4;">'+html+'</div>');gInfo.open({map:this.map,anchor:mk});});
+    this.markers.push(mk);
+  },
+  fit(pts){
+    if(pts.length===1){this.map.setCenter({lat:pts[0][0],lng:pts[0][1]});this.map.setZoom(13);}
+    else if(pts.length>1){const b=new google.maps.LatLngBounds();pts.forEach(q=>b.extend({lat:q[0],lng:q[1]}));this.map.fitBounds(b,40);google.maps.event.addListenerOnce(this.map,'idle',()=>{if(this.map.getZoom()>14)this.map.setZoom(14);});}
+  },
+  view(lat,lng,z){this.map.setCenter({lat,lng});this.map.setZoom(z);},
+  temp(lat,lng){this.untemp();this.tmp=new google.maps.Marker({position:{lat,lng},map:this.map,animation:google.maps.Animation.DROP});},
+  untemp(){if(this.tmp){this.tmp.setMap(null);this.tmp=null;}},
+  resize(){google.maps.event.trigger(this.map,'resize');},
+  cursor(c){this.map.setOptions({draggableCursor:c||null});}
+};
+function loadGoogle(){
+  return new Promise(res=>{
+    if(!GMAPS_KEY){res(false);return;}
+    let done=false;const fin=v=>{if(!done){done=true;res(v);}};
+    window.gm_authFailure=()=>{console.warn('Google Maps key rejected — falling back to OpenStreetMap');fin(false);if(MB===GM)switchToLeaflet();};
+    window.__gmReady=async()=>{try{await google.maps.importLibrary('maps');gPlaceLib=await google.maps.importLibrary('places');fin(true);}catch(e){console.error(e);fin(false);}};
+    const sc=document.createElement('script');
+    sc.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(GMAPS_KEY)+'&loading=async&v=weekly&callback=__gmReady';
+    sc.async=true;sc.onerror=()=>fin(false);document.head.appendChild(sc);
+    setTimeout(()=>fin(false),10000);
+  });
+}
+function switchToLeaflet(){const el=$('map');el.innerHTML='';el.removeAttribute('style');gPlaceLib=null;LF.init();MB=LF;map=LF.map;refreshMarkers();}
+async function initMap(){
+  if(mapInitStarted)return;mapInitStarted=true;
   $('pickBanner').onclick=()=>endPick(false);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pickMode)endPick(false);});
+  const ok=await loadGoogle();
+  if(ok){try{GM.init();MB=GM;map=GM.map;}catch(e){console.error(e);MB=null;}}
+  if(!MB){LF.init();MB=LF;map=LF.map;}
+  refreshMarkers();
 }
-function pinIcon(c){return L.divIcon({className:'',html:'<div class="pin" style="background:'+c+'"></div>',iconSize:[22,22],iconAnchor:[11,20],popupAnchor:[0,-18]});}
 function refreshMarkers(){
-  if(!markerLayer)return;markerLayer.clearLayers();const pts=[];
-  slots.forEach(sl=>{if(sl.lat==null)return;if(activeDayFilter!=='all'&&sl.dayIndex!==activeDayFilter)return;const t=typeOf(sl.type);const m=L.marker([sl.lat,sl.lng],{icon:pinIcon(t.color)});const g=gmaps(sl.lat,sl.lng);m.bindPopup('<b>'+t.emoji+' '+esc(sl.title)+'</b><br><span style="color:#888">Day '+(sl.dayIndex+1)+' · '+minsToTimeStr(sl.startMin)+'</span><br>'+(sl.loc?esc(sl.loc)+'<br>':'')+'<a href="'+g+'" target="_blank" rel="noopener" style="color:#c25a8a;font-weight:700;">↗ Open in Google Maps</a>');markerLayer.addLayer(m);pts.push([sl.lat,sl.lng]);});
-  stays.forEach(st=>{if(st.lat==null)return;if(activeDayFilter!=='all'&&!(activeDayFilter>=st.ciDay&&activeDayFilter<=st.coDay))return;const m=L.marker([st.lat,st.lng],{icon:pinIcon('#8fe0b4')});const g=gmaps(st.lat,st.lng);m.bindPopup('<b>🏨 '+esc(st.name)+'</b><br><span style="color:#888">Day '+(st.ciDay+1)+'–'+(st.coDay+1)+'</span><br>'+(st.loc?esc(st.loc)+'<br>':'')+'<a href="'+g+'" target="_blank" rel="noopener" style="color:#3f9c6f;font-weight:700;">↗ Open in Google Maps</a>');markerLayer.addLayer(m);pts.push([st.lat,st.lng]);});
-  if(pts.length===1)map.setView(pts[0],13);else if(pts.length>1)map.fitBounds(pts,{padding:[40,40],maxZoom:14});
+  if(!MB)return;MB.clear();const pts=[];
+  slots.forEach(sl=>{if(sl.lat==null)return;if(activeDayFilter!=='all'&&sl.dayIndex!==activeDayFilter)return;const t=typeOf(sl.type);const g=gmaps(sl.lat,sl.lng);MB.add(sl.lat,sl.lng,t.color,'<b>'+emojiOf(sl)+' '+esc(sl.title)+'</b><br><span style="color:#888">Day '+(sl.dayIndex+1)+' · '+minsToTimeStr(sl.startMin)+'</span><br>'+(sl.loc?esc(sl.loc)+'<br>':'')+'<a href="'+g+'" target="_blank" rel="noopener" style="color:#c25a8a;font-weight:700;">↗ Open in Google Maps</a>');pts.push([sl.lat,sl.lng]);});
+  stays.forEach(st=>{if(st.lat==null)return;if(activeDayFilter!=='all'&&!(activeDayFilter>=st.ciDay&&activeDayFilter<=st.coDay))return;const g=gmaps(st.lat,st.lng);MB.add(st.lat,st.lng,'#8fe0b4','<b>🏨 '+esc(st.name)+'</b><br><span style="color:#888">Day '+(st.ciDay+1)+'–'+(st.coDay+1)+'</span><br>'+(st.loc?esc(st.loc)+'<br>':'')+'<a href="'+g+'" target="_blank" rel="noopener" style="color:#3f9c6f;font-weight:700;">↗ Open in Google Maps</a>');pts.push([st.lat,st.lng]);});
+  MB.fit(pts);
 }
-function startPick(target){if(document.body.classList.contains('map-collapsed'))collapseMap(false);if(map)setTimeout(()=>map.invalidateSize(),80);pickMode=true;pickTarget=target;$('pickBanner').style.display='block';$('map').style.cursor='crosshair';const ov=target==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='0';$(ov).style.pointerEvents='none';$('map').scrollIntoView({behavior:'smooth',block:'center'});}
-function resetPickUI(){pickMode=false;pickTarget=null;$('pickBanner').style.display='none';$('map').style.cursor='';['slotOverlay','hotelOverlay'].forEach(o=>{$(o).style.opacity='';$(o).style.pointerEvents='';});}
-function endPick(ok){pickMode=false;$('pickBanner').style.display='none';$('map').style.cursor='';const ov=pickTarget==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='1';$(ov).style.pointerEvents='auto';const st=pickTarget==='hotel'?'hLocStatus':'locStatus';if(ok){$(st).textContent='✓ Location set';$(st).style.color='var(--mint-ink)';}pickTarget=null;}
+function onMapPick(lat,lng,name){
+  if(!pickMode)return;pendingLatLng={lat,lng};setTemp(lat,lng);
+  const target=pickTarget;endPick(true);
+  if(name){const st=target==='hotel'?'hLocStatus':'locStatus';$(st).textContent='✓ '+name;const inp=target==='hotel'?$('h_loc'):$('s_loc');if(inp&&!inp.value.trim())inp.value=name;}
+}
+function startPick(target){if(document.body.classList.contains('map-collapsed'))collapseMap(false);setTimeout(mapResize,80);pickMode=true;pickTarget=target;$('pickBanner').style.display='block';if(MB)MB.cursor('crosshair');const ov=target==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='0';$(ov).style.pointerEvents='none';$('map').scrollIntoView({behavior:'smooth',block:'center'});}
+function resetPickUI(){pickMode=false;pickTarget=null;$('pickBanner').style.display='none';if(MB)MB.cursor('');['slotOverlay','hotelOverlay'].forEach(o=>{$(o).style.opacity='';$(o).style.pointerEvents='';});}
+function endPick(ok){pickMode=false;$('pickBanner').style.display='none';if(MB)MB.cursor('');const ov=pickTarget==='hotel'?'hotelOverlay':'slotOverlay';$(ov).style.opacity='1';$(ov).style.pointerEvents='auto';const st=pickTarget==='hotel'?'hLocStatus':'locStatus';if(ok){$(st).textContent='✓ Location set';$(st).style.color='var(--mint-ink)';}pickTarget=null;}
+/* ---- place search: Google Places first, OpenStreetMap as a fallback ---- */
+async function searchPlaces(q){
+  if(!(MB===GM&&gPlaceLib))return null;
+  const req={textQuery:q,fields:['displayName','formattedAddress','location'],maxResultCount:5};
+  try{req.locationBias=GM.map.getCenter();}catch(_){}
+  const r=await gPlaceLib.Place.searchByText(req);
+  return(r.places||[]).map(x=>({name:x.displayName||'',addr:x.formattedAddress||'',lat:x.location.lat(),lng:x.location.lng()}));
+}
+async function osmSearch(q){
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=3&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}});const j=await r.json();
+    return(j||[]).map(x=>({name:(x.display_name||'').split(',')[0],addr:x.display_name||'',lat:+x.lat,lng:+x.lon}));}catch(e){return[];}
+}
 async function geocode(q,statusId){
-  if(!q){$(statusId).textContent='Type a location name first';$(statusId).style.color='var(--accent-ink)';return;}
-  $(statusId).textContent='Searching…';$(statusId).style.color='var(--accent2-ink)';
-  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept-Language':'en'}});const j=await r.json();
-    if(j&&j.length){pendingLatLng={lat:+j[0].lat,lng:+j[0].lon};if(tempMarker)tempMarker.remove();tempMarker=L.marker([+j[0].lat,+j[0].lon]).addTo(map);map.setView([+j[0].lat,+j[0].lon],14);$(statusId).textContent='✓ Found: '+(j[0].display_name||'').slice(0,46)+'…';$(statusId).style.color='var(--mint-ink)';return;}
-    $(statusId).textContent='No match — add more detail, or pick manually';$(statusId).style.color='var(--accent-ink)';
-  }catch(e){$(statusId).textContent='Search unavailable — pick manually instead';$(statusId).style.color='var(--accent-ink)';}
+  const st=$(statusId),box=$(statusId==='hLocStatus'?'hLocResults':'locResults');if(box)box.innerHTML='';
+  if(!q){st.textContent='Type a location name first';st.style.color='var(--accent-ink)';return;}
+  st.textContent='Searching…';st.style.color='var(--accent2-ink)';
+  let results=null,src='';
+  try{results=await searchPlaces(q);src='';}catch(e){console.warn('Places search failed',e);results=null;}
+  if(!results||!results.length){results=await osmSearch(q);src=' (OpenStreetMap)';}
+  if(!results.length){st.textContent='No match — try the shop name plus area, or pick manually';st.style.color='var(--accent-ink)';return;}
+  const choose=(r,btn)=>{pendingLatLng={lat:r.lat,lng:r.lng};setTemp(r.lat,r.lng);if(MB)MB.view(r.lat,r.lng,16);st.textContent='✓ '+r.name+(r.addr&&r.addr!==r.name?' — '+r.addr.slice(0,70):'')+src;st.style.color='var(--mint-ink)';if(box)box.querySelectorAll('button').forEach(b=>b.classList.toggle('sel',b===btn));};
+  let first=null;
+  if(results.length>1&&box){results.forEach((r,i)=>{const b=document.createElement('button');b.type='button';b.textContent=r.name+(r.addr?' — '+r.addr:'');b.onclick=()=>choose(r,b);box.appendChild(b);if(i===0)first=b;});}
+  choose(results[0],first);
 }
 function fillDaySelect(el,sel){el.innerHTML='';trip.days.forEach((d,i)=>{const o=document.createElement('option');o.value=i;o.textContent='Day '+(i+1)+' · '+fmtDate(d);el.appendChild(o);});el.value=sel||0;}
 
@@ -1228,7 +1319,7 @@ function buildTypePick(){const tp=$('typePick');tp.innerHTML='';TYPES.filter(t=>
 function openSlotModal(id){
   if(!canEdit)return;
   if(id){const _s=slots.find(s=>s.id===id);if(_s&&_s.transport){openTransportModal(id);return;}}
-  editingSlotId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('s_day'));
+  editingSlotId=id||null;pendingLatLng=null;clearTemp();fillDaySelect($('s_day'));
   if(id){const sl=slots.find(s=>s.id===id);$('slotModalTitle').textContent='🍡 Edit';$('s_title').value=sl.title;formType=sl.type;$('s_day').value=sl.dayIndex;$('s_start').value=minsToInputVal(sl.startMin);$('s_end').value=minsToInputVal(sl.endMin);$('s_loc').value=sl.loc||'';$('s_resname').value=sl.resname||'';$('s_resnum').value=sl.resnum||'';$('s_notes').value=sl.notes||'';if(sl.lat!=null){pendingLatLng={lat:sl.lat,lng:sl.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}else $('locStatus').textContent='';$('slotDeleteBtn').style.display='inline-block';$('slotToHotelBtn').style.display='inline-block';}
   else{formType='meal';$('slotModalTitle').textContent='🍡 Add to trip';$('s_title').value='';$('s_day').value=0;$('s_start').value='12:00';$('s_end').value='13:00';$('s_loc').value='';$('s_resname').value='';$('s_resnum').value='';$('s_notes').value='';$('locStatus').textContent='';$('slotDeleteBtn').style.display='none';$('slotToHotelBtn').style.display='none';}
   buildTypePick();resetPickUI();$('slotOverlay').classList.add('show');
@@ -1237,7 +1328,7 @@ $('addSlotBtn').onclick=()=>openSlotModal(null);
 $('fabAdd').onclick=()=>openSlotModal(null);
 
 /* ---- map: collapse / reopen / drag-resize ---- */
-function collapseMap(yes){document.body.classList.toggle('map-collapsed',yes);try{localStorage.setItem('mm_map_collapsed',yes?'1':'0');}catch(_){}if(!yes&&map)setTimeout(()=>map.invalidateSize(),60);}
+function collapseMap(yes){document.body.classList.toggle('map-collapsed',yes);try{localStorage.setItem('mm_map_collapsed',yes?'1':'0');}catch(_){}if(!yes)setTimeout(()=>{mapResize();refreshMarkers();},60);}
 $('mapCollapse').onclick=()=>collapseMap(true);
 $('mapReopen').onclick=()=>collapseMap(false);
 (function initDivider(){
@@ -1249,7 +1340,7 @@ $('mapReopen').onclick=()=>collapseMap(false);
     pct=Math.max(30,Math.min(80,pct)); // timeline between 30% and 80%
     tl.style.flex='1 1 '+pct+'%';mp.style.flex='1 1 '+(100-pct)+'%';
   };
-  const stop=()=>{if(!dragging)return;dragging=false;document.body.style.userSelect='';if(map)map.invalidateSize();try{localStorage.setItem('mm_tl_pct',tl.style.flexBasis||'');}catch(_){}};
+  const stop=()=>{if(!dragging)return;dragging=false;document.body.style.userSelect='';mapResize();try{localStorage.setItem('mm_tl_pct',tl.style.flexBasis||'');}catch(_){}};
   const start=e=>{dragging=true;document.body.style.userSelect='none';e.preventDefault();};
   div.addEventListener('mousedown',start);div.addEventListener('touchstart',start,{passive:false});
   window.addEventListener('mousemove',onMove);window.addEventListener('touchmove',onMove,{passive:false});
@@ -1261,9 +1352,10 @@ function restoreLayoutPrefs(){
 }
 $('editTripBtn').onclick=()=>openTripModal(true);
 $('slotCancelBtn').onclick=closeSlotModal;
-function closeSlotModal(){$('slotOverlay').classList.remove('show');resetPickUI();if(tempMarker){tempMarker.remove();tempMarker=null;}}
+function closeSlotModal(){$('slotOverlay').classList.remove('show');resetPickUI();clearTemp();}
 $('findLocBtn').onclick=()=>geocode($('s_loc').value.trim(),'locStatus');
 $('pickOnMapBtn').onclick=()=>startPick('slot');
+[['s_loc','locStatus'],['h_loc','hLocStatus']].forEach(([id,sid])=>{const el=$(id);if(!el)return;el.addEventListener('paste',()=>setTimeout(()=>geocode(el.value.trim(),sid),80));el.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();geocode(el.value.trim(),sid);}});});
 $('slotSaveBtn').onclick=()=>{const title=$('s_title').value.trim()||'Untitled';let sm=inputValToMins($('s_start').value||'12:00'),em=inputValToMins($('s_end').value||'13:00');if(em<=sm)em=sm+MIN_DUR;const data={dayIndex:parseInt($('s_day').value),startMin:sm,endMin:em,type:formType,title,loc:$('s_loc').value.trim(),resname:$('s_resname').value.trim(),resnum:$('s_resnum').value.trim(),notes:$('s_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingSlotId;const eid=editingSlotId;closeSlotModal();withIdentity((wasEdit?'edited ':'added ')+'“'+title+'”',()=>{if(wasEdit)Object.assign(slots.find(s=>s.id===eid),data);else slots.push({id:nextId++,...data});});};
 $('slotDeleteBtn').onclick=()=>{const eid=editingSlotId;const t=eid?(slots.find(s=>s.id===eid)||{}).title:'';closeSlotModal();if(eid)withIdentity('deleted “'+(t||'item')+'”',()=>{slots=slots.filter(s=>s.id!==eid);});};
 $('slotToHotelBtn').onclick=()=>{
@@ -1299,14 +1391,14 @@ $('flightDeleteBtn').onclick=()=>{const eid=editingFlightId;const fn=eid?(flight
 /* ---------- HOTEL MODAL ---------- */
 function openHotelModal(id){
   if(!canEdit)return;
-  editingHotelId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('h_ciDay'));fillDaySelect($('h_coDay'));
+  editingHotelId=id||null;pendingLatLng=null;clearTemp();fillDaySelect($('h_ciDay'));fillDaySelect($('h_coDay'));
   if(id){const st=stays.find(s=>s.id===id);if(!st){return;}$('hotelModalTitle').textContent='🏨 Edit hotel';$('h_name').value=st.name;$('h_ciDay').value=st.ciDay;$('h_coDay').value=st.coDay;$('h_ciTime').value=minsToInputVal(st.ciMin);$('h_coTime').value=minsToInputVal(st.coMin);$('h_loc').value=st.loc||'';$('h_resname').value=st.resname||'';$('h_resnum').value=st.resnum||'';$('h_notes').value=st.notes||'';if(st.lat!=null){pendingLatLng={lat:st.lat,lng:st.lng};$('hLocStatus').textContent='✓ Location set';$('hLocStatus').style.color='var(--mint-ink)';}else $('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='inline-block';}
   else{$('hotelModalTitle').textContent='🏨 Add hotel';$('h_name').value='';$('h_ciDay').value=0;$('h_coDay').value=Math.min(1,trip.days.length-1);$('h_ciTime').value='15:00';$('h_coTime').value='11:00';$('h_loc').value='';$('h_resname').value='';$('h_resnum').value='';$('h_notes').value='';$('hLocStatus').textContent='';$('hotelDeleteBtn').style.display='none';}
   resetPickUI();$('hotelOverlay').classList.add('show');
 }
 $('addHotelBtn').onclick=()=>openHotelModal(null);
 $('hotelCancelBtn').onclick=closeHotelModal;
-function closeHotelModal(){$('hotelOverlay').classList.remove('show');resetPickUI();if(tempMarker){tempMarker.remove();tempMarker=null;}}
+function closeHotelModal(){$('hotelOverlay').classList.remove('show');resetPickUI();clearTemp();}
 $('hFindLocBtn').onclick=()=>geocode($('h_loc').value.trim(),'hLocStatus');
 $('hPickBtn').onclick=()=>startPick('hotel');
 $('hotelSaveBtn').onclick=()=>{let ciDay=parseInt($('h_ciDay').value),coDay=parseInt($('h_coDay').value);if(coDay<ciDay)[ciDay,coDay]=[coDay,ciDay];const data={name:$('h_name').value.trim()||'Hotel',ciDay,coDay,ciMin:inputValToMins($('h_ciTime').value||'15:00'),coMin:inputValToMins($('h_coTime').value||'11:00'),loc:$('h_loc').value.trim(),resname:$('h_resname').value.trim(),resnum:$('h_resnum').value.trim(),notes:$('h_notes').value.trim(),lat:pendingLatLng?pendingLatLng.lat:null,lng:pendingLatLng?pendingLatLng.lng:null};const wasEdit=!!editingHotelId,eid=editingHotelId;closeHotelModal();withIdentity((wasEdit?'edited ':'added ')+'hotel “'+data.name+'”',()=>{if(wasEdit)Object.assign(stays.find(s=>s.id===eid),data);else stays.push({id:nextStay++,...data});});};
