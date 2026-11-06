@@ -89,6 +89,9 @@
   .hd-chip{font-size:.66rem;font-weight:700;border-radius:8px;padding:3px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 5px rgba(150,150,180,.22);}
   .hd-hotel{background:linear-gradient(160deg,var(--mint),#e3faee);color:var(--mint-ink);}
   .hd-flight{background:linear-gradient(160deg,var(--flight),#ece9ff);color:var(--flight-ink);}
+  .hd-transit{background:linear-gradient(160deg,var(--blue),#e8f4ff);color:var(--blue-ink);}
+  .flight-buffer.tr{background:repeating-linear-gradient(135deg,rgba(150,200,255,.30),rgba(150,200,255,.30) 8px,rgba(150,200,255,.12) 8px,rgba(150,200,255,.12) 16px);border-color:rgba(80,140,210,.45);}
+  .flight-buffer.tr span{color:var(--blue-ink);}
   .grid-area{position:relative;} .hour-line{position:absolute;left:0;right:0;border-top:1px solid rgba(150,140,170,.14);}
   .slot{position:absolute;left:6px;right:6px;border-radius:16px;padding:7px 9px;overflow:hidden;cursor:grab;box-shadow:0 5px 12px rgba(120,110,150,.22);border:1px solid rgba(255,255,255,.7);user-select:none;touch-action:none;}
   .slot:active{cursor:grabbing;} .slot.dragging{box-shadow:0 14px 28px rgba(120,110,150,.4);z-index:50;opacity:.96;}
@@ -220,6 +223,7 @@
     <button class="soft ghost mini" id="listBtn">📋<span class="lbl"> List</span></button>
     <button class="soft ghost mini" id="editTripBtn">✏️<span class="lbl"> Trip</span></button>
     <button class="soft ghost mini" id="addFlightBtn">✈️<span class="lbl"> Flight</span></button>
+    <button class="soft ghost mini" id="addTransportBtn">🚆<span class="lbl"> Transport</span></button>
     <button class="soft ghost mini" id="addHotelBtn">🏨<span class="lbl"> Hotel</span></button>
     <button class="soft ghost mini" id="exportBtn">📤<span class="lbl"> Export</span></button>
     <button class="soft blue mini" id="shareBtn">🔗<span class="lbl"> Share</span></button>
@@ -301,6 +305,22 @@
     <label class="field">Notes<textarea id="fl_notes" rows="2" placeholder="optional"></textarea></label>
     <div class="modal-actions"><button class="soft danger tiny" id="flightDeleteBtn" style="display:none;">🗑 Delete</button><div class="spacer"></div>
       <button class="soft ghost tiny" id="flightCancelBtn">Cancel</button><button class="soft green" id="flightSaveBtn">Save</button></div>
+  </div>
+</div>
+
+<!-- Transport -->
+<div class="overlay" id="transportOverlay">
+  <div class="modal">
+    <h2 id="transportModalTitle">🚆 Add transport</h2>
+    <div class="row2"><label class="field">Type<select id="tr_mode"></select></label><label class="field">Train / line / service<input id="tr_service" placeholder="e.g. Shinkansen Hikari 509" /></label></div>
+    <div class="row2"><label class="field">From<input id="tr_from" placeholder="e.g. Tokyo Station" /></label><label class="field">To<input id="tr_to" placeholder="e.g. Kyoto Station" /></label></div>
+    <div class="row2"><label class="field">Day<select id="tr_day"></select></label><label class="field">Time<div class="row2"><input id="tr_depTime" type="time" value="09:00" /><input id="tr_arrTime" type="time" value="10:00" /></div></label></div>
+    <div class="row2"><label class="field">Reservation / ticket #<input id="tr_resnum" placeholder="optional" /></label><label class="field">Seat / car / platform<input id="tr_seat" placeholder="e.g. Car 7, 12A" /></label></div>
+    <label class="field">Head out early (minutes)<input id="tr_buffer" type="number" min="0" max="180" step="5" value="15" /></label>
+    <label class="field">Notes<textarea id="tr_notes" rows="2" placeholder="optional"></textarea></label>
+    <p class="hint">Shows as a card on the timeline and a reminder chip at the top of the day.</p>
+    <div class="modal-actions"><button class="soft danger tiny" id="transportDeleteBtn" style="display:none;">🗑 Delete</button><div class="spacer"></div>
+      <button class="soft ghost tiny" id="transportCancelBtn">Cancel</button><button class="soft green" id="transportSaveBtn">Save</button></div>
   </div>
 </div>
 
@@ -498,7 +518,7 @@ const typeOf=id=>TYPES.find(t=>t.id===id)||TYPES[0];
 
 let trip=null,slots=[],stays=[],flights=[],pending=[],profiles=[],log=[],nextId=1,nextStay=1,nextFlight=1;
 let map,markerLayer,activeDayFilter='all';
-let editingSlotId=null,formType='meal',editingHotelId=null,editingFlightId=null;
+let editingSlotId=null,formType='meal',editingHotelId=null,editingFlightId=null,editingTransportId=null;
 let pendingLatLng=null,pickMode=false,pickTarget=null,tempMarker=null;
 let tripId=null,editToken=null,viewToken=null,importToken=null,canEdit=true,suppressHash=false;
 let myProfileId=null,pendingMutationDesc=null; // identity (edit-link holders only)
@@ -516,6 +536,11 @@ function fmtDate(d){return d.toLocaleDateString(undefined,{month:'short',day:'nu
 function fmtDow(d){return d.toLocaleDateString(undefined,{weekday:'short'});}
 function esc(s){return(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function resStr(x){let p=[];if(x.resname)p.push('🎫 '+x.resname);if(x.resnum)p.push('#'+x.resnum);return p.join('  ');}
+/* transport = a 'transit' slot flagged transport:true (mode, from, to, service, seat, bufferMin) */
+const TR_MODES=[{id:'train',e:'🚆',l:'Train'},{id:'bullet',e:'🚄',l:'Bullet train'},{id:'metro',e:'🚇',l:'Subway / metro'},{id:'bus',e:'🚌',l:'Bus'},{id:'ferry',e:'⛴️',l:'Ferry'},{id:'taxi',e:'🚕',l:'Taxi / car'},{id:'other',e:'🚐',l:'Other'}];
+function trMode(id){return TR_MODES.find(m=>m.id===id)||TR_MODES[0];}
+function emojiOf(s){return s.transport?trMode(s.mode).e:typeOf(s.type).emoji;}
+function resOf(s){if(!s.transport)return resStr(s);return[s.resnum?('🎫 #'+s.resnum):'',s.seat?('💺 '+s.seat):''].filter(Boolean).join('  ');}
 function gmaps(lat,lng,name){if(lat!=null)return'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;if(name)return'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(name);return null;}
 
 $('themeSelect').onchange=e=>{const name=e.target.value;applyTheme(name);localStorage.setItem('mm_theme',name);if(trip){trip.theme=name;if(canEdit)persistSoon();}if(map)setTimeout(()=>map.invalidateSize(),50);};
@@ -753,7 +778,7 @@ function renderListView(){
     let evs=[];
     stays.forEach(st=>{if(i===st.ciDay)evs.push({min:st.ciMin,txt:'🏨 Check-in · '+st.name,sub:st.loc,res:resStr(st)});if(i===st.coDay)evs.push({min:st.coMin,txt:'🏨 Check-out · '+st.name,sub:st.loc});});
     flights.forEach(f=>{const r=(f.from||f.to)?(' · '+(f.from||'?')+'→'+(f.to||'?')):'';if(i===f.depDay)evs.push({min:f.depMin,txt:'✈️ Depart '+f.flightNo+r,sub:f.notes});if(i===f.arrDay)evs.push({min:f.arrMin,txt:'✈️ Arrive '+f.flightNo+(f.to?' · '+f.to:'')});});
-    slots.filter(s=>s.dayIndex===i).forEach(s=>{const t=typeOf(s.type);evs.push({min:s.startMin,end:s.endMin,txt:t.emoji+' '+s.title,sub:s.loc,res:resStr(s)});});
+    slots.filter(s=>s.dayIndex===i).forEach(s=>{const t=typeOf(s.type);evs.push({min:s.startMin,end:s.endMin,txt:emojiOf(s)+' '+s.title,sub:s.loc,res:resOf(s)});});
     evs.sort((a,b)=>a.min-b.min);
     const day=document.createElement('div');day.className='lv-day';
     day.innerHTML='<h3 class="lv-day-h">Day '+(i+1)+' · '+fmtDow(d)+' '+fmtDate(d)+'</h3>';
@@ -935,7 +960,7 @@ function bootUI(){
   applyTheme(trip.theme||currentTheme);localStorage.setItem('mm_theme',trip.theme||currentTheme);
   document.body.classList.toggle('viewonly',!canEdit);
   $('addBar').style.display='flex';
-  ['editTripBtn','addFlightBtn','addHotelBtn','addSlotBtn'].forEach(id=>$(id).style.display=canEdit?'inline-block':'none');
+  ['editTripBtn','addFlightBtn','addTransportBtn','addHotelBtn','addSlotBtn'].forEach(id=>$(id).style.display=canEdit?'inline-block':'none');
   $('fabAdd').style.display=canEdit?'flex':'none';
   restoreLayoutPrefs();
   $('shareBtn').style.display=canEdit?'inline-block':'none';
@@ -994,7 +1019,7 @@ function renderStayNotice(){
   if(!issues.length){el.style.display='none';return;}
   el.innerHTML='🏨 <b>Hotel check:</b> '+issues.map(esc).join(' · ');el.style.display='block';
 }
-function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();renderPendingSlots();renderStayNotice();refreshMarkers();}
+function renderAll(){document.querySelectorAll('.slot,.flight-buffer,.hd-chip').forEach(e=>e.remove());renderSlots();renderStays();renderFlights();renderTransport();renderPendingSlots();renderStayNotice();refreshMarkers();}
 function overlaps(a,b){return a.dayIndex===b.dayIndex&&a.startMin<b.endMin&&b.startMin<a.endMin;}
 /* a conflict counts only if BOTH cards aren't marked intentional */
 function conflictPartners(sl){return slots.filter(o=>o.id!==sl.id&&overlaps(sl,o)&&!sl.allowOverlap&&!o.allowOverlap);}
@@ -1041,8 +1066,9 @@ function renderSlots(){
       const partners=conflictPartners(sl);const hasConf=partners.length>0;
       el.innerHTML='<div class="resize-t"></div>'+
         (hasConf?'<button class="conflict-tag" title="Tap: show what this overlaps">⚠️ Conflict</button>':'')+
-        '<div class="s-title"><span class="s-emoji">'+t.emoji+'</span> '+esc(sl.title)+'</div>'+
+        '<div class="s-title"><span class="s-emoji">'+emojiOf(sl)+'</span> '+esc(sl.title)+'</div>'+
         '<div class="s-time">'+minsToTimeStr(sl.startMin)+' – '+minsToTimeStr(sl.endMin)+'</div>'+
+        (sl.transport&&resOf(sl)?'<div class="s-loc">'+esc(resOf(sl))+'</div>':'')+
         (sl.loc?'<div class="s-loc">📍 '+esc(sl.loc)+'</div>':'')+
         '<div class="resize-h"></div>';
       if(hasConf){
@@ -1116,6 +1142,15 @@ function renderFlights(){
     }
   });
 }
+function renderTransport(){
+  slots.filter(s=>s.transport).sort((a,b)=>a.startMin-b.startMin).forEach(s=>{
+    const m=trMode(s.mode);
+    const hc=chipsOf(s.dayIndex);
+    if(hc){const c=document.createElement('div');c.className='hd-chip hd-transit';const txt=m.e+' '+(s.service||m.l)+' '+minsToTimeStr(s.startMin)+(s.resnum?' · #'+s.resnum:'');c.textContent=txt;c.title=txt;c.onclick=()=>{if(canEdit)openTransportModal(s.id);};hc.appendChild(c);}
+    const area=gridAreaOf(s.dayIndex);
+    if(area&&s.bufferMin>0){const b=document.createElement('div');b.className='flight-buffer tr';const top=Math.max(0,(Math.max(HS()*60,s.startMin-s.bufferMin)-HS()*60)/60*PX_PER_HOUR);const bot=(s.startMin-HS()*60)/60*PX_PER_HOUR;b.style.top=top+'px';b.style.height=Math.max(2,bot-top)+'px';b.innerHTML='<span>🚶 head out</span>';area.appendChild(b);}
+  });
+}
 /* ---------- drag + resize ---------- */
 function attachDrag(el,sl){
   let mode=null,sY=0,sX=0,oS=0,oE=0,moved=false,colRects=[],startDay=0;
@@ -1157,10 +1192,42 @@ async function geocode(q,statusId){
 }
 function fillDaySelect(el,sel){el.innerHTML='';trip.days.forEach((d,i)=>{const o=document.createElement('option');o.value=i;o.textContent='Day '+(i+1)+' · '+fmtDate(d);el.appendChild(o);});el.value=sel||0;}
 
+/* ---------- TRANSPORT MODAL ---------- */
+function openTransportModal(id){
+  if(!canEdit)return;
+  editingTransportId=id||null;
+  const sel=$('tr_mode');sel.innerHTML='';TR_MODES.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.e+' '+m.l;sel.appendChild(o);});
+  const s=id?slots.find(x=>x.id===id):null;
+  const defDay=Number.isInteger(activeDayFilter)?activeDayFilter:0;
+  fillDaySelect($('tr_day'),s?s.dayIndex:defDay);
+  $('transportModalTitle').textContent=s?'🚆 Edit transport':'🚆 Add transport';
+  sel.value=s?(s.mode||'train'):'train';
+  $('tr_service').value=s?(s.service||''):'';$('tr_from').value=s?(s.from||''):'';$('tr_to').value=s?(s.to||''):'';
+  $('tr_depTime').value=s?minsToInputVal(s.startMin):'09:00';$('tr_arrTime').value=s?minsToInputVal(s.endMin):'10:00';
+  $('tr_resnum').value=s?(s.resnum||''):'';$('tr_seat').value=s?(s.seat||''):'';
+  $('tr_buffer').value=s?(s.bufferMin==null?15:s.bufferMin):15;$('tr_notes').value=s?(s.notes||''):'';
+  $('transportDeleteBtn').style.display=s?'inline-block':'none';
+  $('transportOverlay').classList.add('show');
+}
+function closeTransportModal(){$('transportOverlay').classList.remove('show');}
+$('addTransportBtn').onclick=()=>openTransportModal(null);
+$('transportCancelBtn').onclick=closeTransportModal;
+$('transportSaveBtn').onclick=()=>{
+  const mode=$('tr_mode').value,m=trMode(mode),service=$('tr_service').value.trim(),from=$('tr_from').value.trim(),to=$('tr_to').value.trim();
+  let sm=inputValToMins($('tr_depTime').value||'09:00'),em=inputValToMins($('tr_arrTime').value||'10:00');if(em<=sm)em=sm+MIN_DUR;
+  const route=(from||to)?((from||'?')+'→'+(to||'?')):'';
+  const title=(service||m.l)+(route?' · '+route:'');
+  const data={transport:true,type:'transit',mode,service,from,to,seat:$('tr_seat').value.trim(),bufferMin:Math.max(0,Math.round(parseFloat($('tr_buffer').value)||0)),title,dayIndex:parseInt($('tr_day').value),startMin:sm,endMin:em,loc:'',resname:'',resnum:$('tr_resnum').value.trim(),notes:$('tr_notes').value.trim(),lat:null,lng:null};
+  const wasEdit=!!editingTransportId,eid=editingTransportId;closeTransportModal();
+  withIdentity((wasEdit?'edited ':'added ')+'transport “'+title+'”',()=>{if(wasEdit)Object.assign(slots.find(s=>s.id===eid),data);else slots.push({id:nextId++,...data});});
+};
+$('transportDeleteBtn').onclick=()=>{const eid=editingTransportId;const t=eid?(slots.find(s=>s.id===eid)||{}).title:'';closeTransportModal();if(eid)withIdentity('deleted transport “'+(t||'')+'”',()=>{slots=slots.filter(s=>s.id!==eid);});};
+
 /* ---------- SLOT MODAL ---------- */
 function buildTypePick(){const tp=$('typePick');tp.innerHTML='';TYPES.filter(t=>PICKABLE.includes(t.id)).forEach(t=>{const b=document.createElement('button');b.type='button';b.className=t.cls+(formType===t.id?' sel':'');b.textContent=t.label;b.onclick=()=>{formType=t.id;buildTypePick();};tp.appendChild(b);});}
 function openSlotModal(id){
   if(!canEdit)return;
+  if(id){const _s=slots.find(s=>s.id===id);if(_s&&_s.transport){openTransportModal(id);return;}}
   editingSlotId=id||null;pendingLatLng=null;if(tempMarker){tempMarker.remove();tempMarker=null;}fillDaySelect($('s_day'));
   if(id){const sl=slots.find(s=>s.id===id);$('slotModalTitle').textContent='🍡 Edit';$('s_title').value=sl.title;formType=sl.type;$('s_day').value=sl.dayIndex;$('s_start').value=minsToInputVal(sl.startMin);$('s_end').value=minsToInputVal(sl.endMin);$('s_loc').value=sl.loc||'';$('s_resname').value=sl.resname||'';$('s_resnum').value=sl.resnum||'';$('s_notes').value=sl.notes||'';if(sl.lat!=null){pendingLatLng={lat:sl.lat,lng:sl.lng};$('locStatus').textContent='✓ Location set';$('locStatus').style.color='var(--mint-ink)';}else $('locStatus').textContent='';$('slotDeleteBtn').style.display='inline-block';$('slotToHotelBtn').style.display='inline-block';}
   else{formType='meal';$('slotModalTitle').textContent='🍡 Add to trip';$('s_title').value='';$('s_day').value=0;$('s_start').value='12:00';$('s_end').value='13:00';$('s_loc').value='';$('s_resname').value='';$('s_resnum').value='';$('s_notes').value='';$('locStatus').textContent='';$('slotDeleteBtn').style.display='none';$('slotToHotelBtn').style.display='none';}
@@ -1270,7 +1337,7 @@ function agendaHTML(){
     let evs=[];
     stays.forEach(st=>{if(i===st.ciDay)evs.push({min:st.ciMin,title:'🏨 Check-in · '+st.name,loc:st.loc,lat:st.lat,lng:st.lng,res:resStr(st)});if(i===st.coDay)evs.push({min:st.coMin,title:'🏨 Check-out · '+st.name,loc:st.loc,lat:st.lat,lng:st.lng});});
     flights.forEach(f=>{const r=(f.from||f.to)?(' · '+(f.from||'?')+'→'+(f.to||'?')):'';if(i===f.depDay)evs.push({min:f.depMin,title:'✈️ Depart '+f.flightNo+r,res:f.notes});if(i===f.arrDay)evs.push({min:f.arrMin,title:'✈️ Arrive '+f.flightNo+(f.to?' · '+f.to:'')});});
-    slots.filter(s=>s.dayIndex===i).forEach(s=>{const t=typeOf(s.type);evs.push({min:s.startMin,title:t.emoji+' '+s.title,loc:s.loc,lat:s.lat,lng:s.lng,res:resStr(s)});});
+    slots.filter(s=>s.dayIndex===i).forEach(s=>{const t=typeOf(s.type);evs.push({min:s.startMin,title:emojiOf(s)+' '+s.title,loc:s.loc,lat:s.lat,lng:s.lng,res:resOf(s)});});
     evs.sort((a,b)=>a.min-b.min);
     if(!evs.length)h+='<div class="ag-empty">— free day —</div>';
     evs.forEach(e=>{const g=gmaps(e.lat,e.lng,e.loc);h+='<div class="ag-row"><div class="ag-time">'+minsToTimeStr(e.min)+'</div><div class="ag-body"><div class="ag-title">'+esc(e.title)+'</div>'+(e.loc?('<div class="ag-loc">📍 '+(g?('<a href="'+g+'" target="_blank" rel="noopener">'+esc(e.loc)+'</a>'):esc(e.loc))+'</div>'):'')+(e.res?'<div class="ag-res">'+esc(e.res)+'</div>':'')+'</div></div>';});
@@ -1287,7 +1354,7 @@ $('exHtml').onclick=()=>{const doc='<!DOCTYPE html><html lang="en"><head><meta c
 $('exImg').onclick=async()=>{const t=THEMES[currentTheme]||THEMES.marshmallow;const host=document.createElement('div');host.style.cssText='position:fixed;left:-9999px;top:0;width:520px;background:'+agendaBG()+';';const st=document.createElement('style');st.textContent=agendaCSS();host.appendChild(st);const c=document.createElement('div');c.innerHTML=agendaHTML();host.appendChild(c);document.body.appendChild(host);try{const canvas=await html2canvas(host,{scale:2,backgroundColor:t['--bg1'],useCORS:true});const a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download=slug()+'-wallpaper.png';document.body.appendChild(a);a.click();a.remove();}catch(e){alert('Could not render image. Try the locked web page instead.');}host.remove();$('exportOverlay').classList.remove('show');};
 
 /* ---------- backdrop-to-close ---------- */
-[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['pendingOverlay',()=>$('pendingOverlay').classList.remove('show')],['whoOverlay',()=>$('whoOverlay').classList.remove('show')],['restoreOverlay',()=>$('restoreOverlay').classList.remove('show')],['listOverlay',()=>$('listOverlay').classList.remove('show')],['conflictOverlay',()=>$('conflictOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
+[['slotOverlay',closeSlotModal],['hotelOverlay',closeHotelModal],['flightOverlay',()=>$('flightOverlay').classList.remove('show')],['transportOverlay',()=>$('transportOverlay').classList.remove('show')],['exportOverlay',()=>$('exportOverlay').classList.remove('show')],['shareOverlay',()=>$('shareOverlay').classList.remove('show')],['pendingOverlay',()=>$('pendingOverlay').classList.remove('show')],['whoOverlay',()=>$('whoOverlay').classList.remove('show')],['restoreOverlay',()=>$('restoreOverlay').classList.remove('show')],['listOverlay',()=>$('listOverlay').classList.remove('show')],['conflictOverlay',()=>$('conflictOverlay').classList.remove('show')],['tripOverlay',()=>{if(trip)$('tripOverlay').classList.remove('show');}]].forEach(([ov,fn])=>{$(ov).addEventListener('click',e=>{if(e.target===$(ov)&&!pickMode)fn();});});
 
 /* ---------- ROUTING + START ---------- */
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const m=h.match(/^trip\/([^?]+)\?t=(.+)$/);return m?{id:m[1],token:m[2]}:null;}
